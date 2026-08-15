@@ -1,13 +1,13 @@
 # Phone-Link Project Status
 
 ## Current Phase
-Phase 2 — Secure QR Pairing + Discovery
+Phase 3 — Camera → PC Flow
 
 ## Status
 COMPLETED (2026-08-15)
 
 ## Last Verified Commit
-Phase 0: e1bb9bf（Phase 1 提交：`phase-1: add local image receiver`）
+Phase 3: `phase-3: complete camera-to-pc flow`
 
 ## Completed
 
@@ -16,7 +16,7 @@ Phase 0: e1bb9bf（Phase 1 提交：`phase-1: add local image receiver`）
 - [x] Desktop 启动本地 HTTPS Receiver（Kestrel，监听 0.0.0.0:8484，自签证书）
 - [x] 本机 DeviceIdentity（`desktop-<guid>`，SQLite settings 持久化）
 - [x] SQLite 持久化（transfers + settings 表，Microsoft.Data.Sqlite）
-- [x] GET /v1/health：无 token 最小响应（仅协议版本）/ 有效 token 完整身份
+- [x] GET /v1/health：无 token 最小响应 / 有效 token 完整身份
 - [x] POST /v1/transfers：multipart 上传（metadata + file，metadata 必须在 file 前）
 - [x] GET /v1/transfers/{id}：状态确认（幂等/重试去重用）
 - [x] Transfer 管线：temp 写入 → 25MB 上限 → MIME 白名单+文件头校验 → SHA-256 → 原子移动 → SQLite → 事件 → UI
@@ -44,26 +44,49 @@ Phase 0: e1bb9bf（Phase 1 提交：`phase-1: add local image receiver`）
 - [x] 工具：tools/qr-show（show/verify/devices/revoke/restore/reset-cert）、tools/qr-fullscreen（全屏 QR）
 - [x] 文档：PROTOCOL.md / SECURITY.md / TESTING.md / README.md 已按 Phase 2 更新
 
+### Phase 3 — Camera → PC Flow
+- [x] Android 首页改为 CameraX 实时预览相机页（快门拍照 + 相册 Photo Picker 入口）
+- [x] 相机权限门控（CameraPermissionGate），拒绝后引导系统设置
+- [x] 拍照方向：重力传感器驱动 ImageCapture TargetRotation（竖拿竖拍、横拿横拍），不依赖系统"自动旋转"设置；Activity 锁定竖屏
+- [x] 图片预处理（ImagePreparer）：EXIF orientation 旋转为实际像素方向 → JPEG quality 95、最长边 ≤4096（可读性优先）→ 流式 SHA-256
+- [x] 上传（TransferRepository）：multipart metadata 先于 file（协议约束）、64KB 分块、真实字节进度、钉扎 TLS + Device Token
+- [x] 传输状态机（TransferViewModel）：Idle/Preparing/Preview/Uploading/Completed/Failed，2% 进度节流
+- [x] 幂等重试：重试复用同一 TransferId；上传结果不确定时 GET /v1/transfers/{id} 确认，已存在则跳过，绝不重复落盘
+- [x] 失败分类（TransferErrorClassifier）：SERVICE_PAUSED 503、DEVICE_REVOKED 403、AUTH_INVALID 401、指纹不匹配、网络超时等 → 中文用户文案 + 可重试标记
+- [x] 发送页 UI（SendScreens）：预览（重拍/发送）、上传进度、成功自动返回（1.2s）、失败（重试/放弃）
+- [x] 临时文件：拍照原始文件 cache/camera，规范化文件 cache/transfers；启动清理旧临时文件
+- [x] Desktop 暂停接收：IReceiverHost.Pause()/Resume()，暂停时上传返回 503 SERVICE_PAUSED，UI 暂停/恢复按钮
+- [x] Desktop Latest 操作栏：打开 / 复制图片（剪贴板）/ 打开所在文件夹
+- [x] Desktop 系统托盘：打开主窗口 / 暂停接收（勾选）/ 配对新手机 / 打开收件文件夹 / 退出；关闭窗口隐藏到托盘
+- [x] Desktop 测试：PauseTests（3）+ LatestActionsTests（7，新测试项目 PhoneLink.Desktop.Tests）
+- [x] Android JVM 单测新增：TransferManifest 3 + TransferErrorClassifier 11 + SHA-256 流式 2
+
 ## Verification
 - Desktop build: ✅ 0 warning / 0 error
-- Desktop tests: ✅ 93/93（Core 22、Transport 28、Integration 43）
-- Android unit tests: ✅ 10/10（QrPayloadCodec 6、Fingerprints 4）
-- Smoke test: ✅ 14/14（真实 Desktop 应用，含重启持久化）
-- mDNS: ✅ 日志确认 `mDNS advertisement registered: DESKTOP-I3G6SEO._phonelink._tcp.local (port 8484)`
-- 实机验收（MEIZU 21 + 真实 Wi-Fi）:
-  - ✅ 扫码配对成功（QR → 指纹钉扎 → /v1/pair → Device Token 持久化）
-  - ✅ 重启 app 自动重连（NSD 发现 → health → "已连接"）
-  - ✅ 撤销设备：手机 health 返回 DEVICE_REVOKED，UI 提示"已被撤销，请重新扫码配对"
-  - ✅ 错误指纹拒绝：更换桌面证书后重连，`SSLHandshakeException: Certificate fingerprint mismatch`，UI 明确提示"指纹不一致"
+- Desktop tests: ✅ 103/103（Core 22、Transport 28、Integration 46、Desktop.Tests 7）
+- Android unit tests: ✅ 27/27（QrPayloadCodec 6、Fingerprints 4、TransferManifest 3、TransferErrorClassifier 11、SHA-256 2）
+- Android build: ✅ assembleDebug 0 error（含 exifinterface 依赖）
+- 实机验收（MEIZU 21 + 真实 Wi-Fi，Phase 3）:
+  - ✅ TEST A：拍照 → 预览 → 发送 → PC 自动显示（Latest 更新）
+  - ✅ TEST B：方向正确——竖拍 3000×4000、横拍 4000×3000（EXIF=6/1 验证，系统自动旋转关闭状态）
+  - ✅ TEST C：复制图片 → 剪贴板含 4000×3000 位图；打开 / 打开所在文件夹正常
+  - ✅ TEST D：相册选图发送成功（长图 2292×1690、截图 2292×436）
+  - ✅ TEST E：断网发送失败 → 恢复网络重试成功，PC 端仅一个文件（同 TransferId 幂等，无重复）
+  - ✅ TEST F：桌面端重启后 Latest 恢复（磁盘历史）、手机无需重新配对
+  - ✅ TEST G：撤销设备后发送被拒（"设备已被桌面端撤销"）→ 重新扫码配对恢复
+  - ✅ TEST H：托盘暂停接收 → 发送失败（503 SERVICE_PAUSED 提示）→ 恢复后成功
+- 性能实测（同 Wi-Fi）:
+  - ✅ 2.2MB JPEG 上传 267ms（手机端 upload 计时）；434KB 上传 121ms
+  - ✅ 服务端处理 434KB 请求 118ms / 上传事务 60ms
+  - ✅ 目标 2MB < 2s 达成（实测约 0.27s，含上传）
 
 ## Known Issues
-- 无托盘（规范 §11.2 属于 UI 要求，未列入 Phase 1/2 验收，建议 Phase 3 前补）
 - `dev-token.txt` 遗留文件（Phase 2 起不生成、不鉴权，仅兼容旧客户端读取，可手动删除）
 - Windows 防火墙：首次监听局域网端口可能弹出允许提示，需用户允许（文档已说明）
 - Flyme/部分厂商 ROM 限制 adb install：实机安装需 push APK 后从文件管理器手动安装
-- 上传 metadata 要求先于 file part（协议文档已明确，Phase 3 实现客户端时遵守）
-- Android 上传/图片发送功能尚未实现（属 Phase 3 范围）
+- Flyme 系统日志优化：Log.d 不输出到 logcat（不影响功能，调试用文件日志替代）
+- 手机端无日志文件（验收用临时钩子已移除，后续如需可加正式日志）
 
 ## Next Action
-- 提交 Phase 2（建议 commit: `phase-2: add secure QR pairing and discovery`）
-- 用户确认后进入 Phase 3：Android 拍照/相册发送 + 上传管线（multipart 遵守 metadata 先于 file 的协议约束）
+- 提交 Phase 3（commit: `phase-3: complete camera-to-pc flow`）
+- Phase 3 验收完成，按 33 项报告交付

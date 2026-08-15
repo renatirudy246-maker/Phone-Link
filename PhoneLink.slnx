@@ -9,6 +9,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/PhoneLink.Core.Tests/PhoneLink.Core.Tests.csproj" />
+    <Project Path="tests/PhoneLink.Desktop.Tests/PhoneLink.Desktop.Tests.csproj" />
     <Project Path="tests/PhoneLink.IntegrationTests/PhoneLink.IntegrationTests.csproj" />
     <Project Path="tests/PhoneLink.Transport.Tests/PhoneLink.Transport.Tests.csproj" />
   </Folder>

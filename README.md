@@ -21,13 +21,14 @@
 │  │  ├─ PhoneLink.Transport   局域网接收服务（Kestrel/HTTPS/mDNS）
 │  │  ├─ PhoneLink.Infrastructure  SQLite / 文件系统 / 安全存储 / 日志
 │  │  ├─ PhoneLink.AI          AI Vision Provider
-│  │  └─ PhoneLink.Desktop     WPF 桌面端（托盘 / 预览）
+│  │  └─ PhoneLink.Desktop     WPF 桌面端（托盘 / Latest 操作栏 / 暂停接收）
 │  └─ android/
-│     └─ PhoneLinkAndroid      Kotlin + Compose + CameraX（扫码配对 / NSD 发现 / 指纹钉扎）
+│     └─ PhoneLinkAndroid      Kotlin + Compose + CameraX（拍照 / 相册 / 扫码配对 / 上传）
 ├─ tests/
 │  ├─ PhoneLink.Core.Tests
 │  ├─ PhoneLink.Transport.Tests
-│  └─ PhoneLink.IntegrationTests
+│  ├─ PhoneLink.IntegrationTests
+│  └─ PhoneLink.Desktop.Tests
 └─ tools/
    ├─ build-desktop.ps1
    ├─ build-android.ps1
@@ -71,6 +72,13 @@
 1. 桌面端启动 → 生成自签证书（持久化）+ mDNS 广告 `_phonelink._tcp.local` + 3 分钟有效配对二维码
 2. 手机扫描二维码 → 校验证书指纹（DER SHA-256 钉扎）+ 一次性 token 换长期 Device Token
 3. 手机通过 NSD 发现桌面端自动重连；桌面端可随时撤销设备（撤销后手机立即失效）
+
+## 拍照发送流程
+
+1. 手机打开 App：相机实时预览 + 相册入口；竖拿竖拍、横拿横拍（重力传感器驱动方向，无需系统自动旋转）
+2. 拍照/选图 → 预览 → 发送：EXIF 方向规范化 + JPEG quality 95 / 最长边 ≤4096 → multipart 上传（metadata 先于 file）
+3. 电脑端：Latest 自动显示新图，可打开 / 复制图片 / 打开所在文件夹；失败重试幂等（同 TransferId，不重复落盘）
+4. 托盘可暂停接收（手机端提示"桌面端已暂停接收"）；关闭窗口自动隐藏到托盘
 
 ## 当前状态
 

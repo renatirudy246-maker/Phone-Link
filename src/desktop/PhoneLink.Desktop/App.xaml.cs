@@ -23,11 +23,13 @@ using Serilog;
 
 namespace PhoneLink.Desktop;
 
-public partial class App : Application
+public partial class App : System.Windows.Application
 {
     private IHost? _host;
     private IReceiverHost? _receiver;
     private IMdnsAdvertiser? _mdns;
+    private TrayIcon? _tray;
+    private bool _exiting;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -106,6 +108,19 @@ public partial class App : Application
             MainWindow = window;
             window.Show();
 
+            _tray = new TrayIcon(
+                _host.Services.GetRequiredService<MainViewModel>(),
+                paths,
+                exit: () =>
+                {
+                    if (MainWindow is MainWindow mainWindow)
+                    {
+                        mainWindow.AllowClose();
+                    }
+
+                    Shutdown();
+                });
+
             // 测试专用钩子：仅当设置 PHONELINK_TEST_PAIRING_OUTPUT 时，
             // 创建一个真实 PairingSession 并把 QR payload 写入指定文件（供 smoke test 走真实配对流程）。
             // 不绕过任何认证逻辑，不构成生产认证后门。
@@ -135,6 +150,8 @@ public partial class App : Application
         Log.Information("Phone-Link exiting.");
         try
         {
+            _tray?.Dispose();
+            _tray = null;
             _mdns?.StopAsync(CancellationToken.None).GetAwaiter().GetResult();
             _receiver?.StopAsync(CancellationToken.None).GetAwaiter().GetResult();
             _host?.StopAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();

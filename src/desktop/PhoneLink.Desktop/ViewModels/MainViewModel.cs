@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Threading;
@@ -7,6 +8,8 @@ using PhoneLink.Core;
 using PhoneLink.Core.Models;
 using PhoneLink.Core.Pairing;
 using PhoneLink.Core.Transfers;
+using PhoneLink.Desktop.Commands;
+using PhoneLink.Transport.Hosting;
 
 namespace PhoneLink.Desktop.ViewModels;
 
@@ -16,10 +19,12 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private readonly ITransferRepository _repository;
     private readonly IPairedDeviceRepository _deviceRepository;
     private readonly IPairingSessionService _pairingSessionService;
+    private readonly IReceiverHost _receiver;
     private readonly DispatcherTimer _refreshTimer;
 
     private string _statusLine = "正在初始化…";
     private string _latestImagePath = string.Empty;
+    private bool _isPaused;
 
     public string StatusLine
     {
@@ -33,9 +38,25 @@ public sealed class MainViewModel : INotifyPropertyChanged
         private set => SetField(ref _latestImagePath, value);
     }
 
+public bool IsPaused
+    {
+        get => _isPaused;
+        private set
+        {
+            var changed = !EqualityComparer<bool>.Default.Equals(_isPaused, value);
+            _isPaused = value;
+            if (changed)
+            {
+                PauseChanged?.Invoke(this, value);
+            }
+        }
+    }
+
     public ObservableCollection<RecentItem> Recent { get; } = [];
 
     public ObservableCollection<DeviceItem> Devices { get; } = [];
+
+    public event EventHandler<bool>? PauseChanged;
 
     public event EventHandler<PairingWindowViewModel>? PairingRequested;
 
@@ -43,12 +64,14 @@ public sealed class MainViewModel : INotifyPropertyChanged
         ITransferEventSource events,
         ITransferRepository repository,
         IPairedDeviceRepository deviceRepository,
-        IPairingSessionService pairingSessionService)
+        IPairingSessionService pairingSessionService,
+        IReceiverHost receiver)
     {
         _events = events;
         _repository = repository;
         _deviceRepository = deviceRepository;
         _pairingSessionService = pairingSessionService;
+        _receiver = receiver;
         _events.Received += OnTransferReceived;
         _ = LoadRecentAsync();
         _ = RefreshDevicesAsync();
@@ -57,6 +80,32 @@ public sealed class MainViewModel : INotifyPropertyChanged
         _refreshTimer.Tick += async (_, _) => await RefreshDevicesAsync();
         _refreshTimer.Start();
     }
+
+    public void TogglePause()
+    {
+        if (_receiver.IsPaused)
+        {
+            _receiver.Resume();
+            StatusLine = "接收中 · 已恢复接收";
+        }
+        else
+        {
+            _receiver.Pause();
+            StatusLine = "已暂停接收 · 手机发送将收到 SERVICE_PAUSED";
+        }
+
+        IsPaused = _receiver.IsPaused;
+    }
+
+    public bool CanOpenLatest => LatestActions.IsValidImagePath(LatestImagePath);
+
+    public void OpenLatest() => LatestActions.Open(LatestImagePath);
+
+    public void OpenLatestFolder() => LatestActions.OpenFolder(LatestImagePath);
+
+    public bool CopyLatest() => LatestActions.CopyImage(LatestImagePath);
+
+    public void SetTransientStatus(string message) => StatusLine = message;
 
     public void OpenPairing()
     {
@@ -75,7 +124,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         try
         {
             var devices = await _deviceRepository.ListAllAsync(CancellationToken.None);
-            var dispatcher = Application.Current?.Dispatcher;
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
             if (dispatcher is null)
             {
                 return;
@@ -101,7 +150,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         try
         {
             var records = await _repository.GetRecentAsync(20, CancellationToken.None);
-            var dispatcher = Application.Current?.Dispatcher;
+            var dispatcher = System.Windows.Application.Current?.Dispatcher;
             if (dispatcher is null)
             {
                 return;
@@ -135,7 +184,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     private void OnTransferReceived(object? sender, TransferRecord record)
     {
-        var dispatcher = Application.Current?.Dispatcher;
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
         if (dispatcher is null)
         {
             return;

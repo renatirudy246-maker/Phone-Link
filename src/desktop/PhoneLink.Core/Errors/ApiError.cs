@@ -16,6 +16,7 @@ public static class ErrorCodes
     public const string NotFound = "NOT_FOUND";
     public const string NetworkTimeout = "NETWORK_TIMEOUT";
     public const string DesktopOffline = "DESKTOP_OFFLINE";
+    public const string ServicePaused = "SERVICE_PAUSED";
     public const string AiAuthFailed = "AI_AUTH_FAILED";
     public const string AiTimeout = "AI_TIMEOUT";
     public const string AiProviderError = "AI_PROVIDER_ERROR";

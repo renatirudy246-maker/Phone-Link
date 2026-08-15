@@ -1,6 +1,6 @@
 # Phone-Link Protocol (v1)
 
-局域网、HTTPS、REST、mDNS 发现、QR 首次配对。已实现 Phase 1（本地接收）+ Phase 2（QR 配对 + 指纹钉扎 + mDNS 发现）。
+局域网、HTTPS、REST、mDNS 发现、QR 首次配对。已实现 Phase 1（本地接收）+ Phase 2（QR 配对 + 指纹钉扎 + mDNS 发现）+ Phase 3（手机拍照/相册上传 + 暂停接收）。
 
 ## 概览
 
@@ -153,6 +153,14 @@ metadata 字段：
 3. 不一致：删除 temp、标记失败、返回 `TRANSFER_HASH_MISMATCH`（422）。
 4. 结果不确定时客户端调用 `GET /v1/transfers/{id}` 确认，避免重复上传。
 
+## 客户端发送流程（Phase 3）
+
+1. **图片预处理**：读取 EXIF orientation → 旋转为实际像素方向（输出 JPEG 不再依赖 EXIF）→ JPEG quality 95、最长边 ≤4096（可读性优先）→ 流式计算 SHA-256。
+2. **multipart 上传**：metadata 先于 file，64KB 分块流式写入，进度按真实字节累计。
+3. **幂等重试**：重试复用同一 `transferId`；若上次请求结果不确定（超时/连接中断），先 `GET /v1/transfers/{id}`——已 Completed 则本地标成功不再上传，404/Failed 才重新上传同 ID。
+4. **错误分类**：403 `DEVICE_REVOKED`（不可重试，提示重新配对）、503 `SERVICE_PAUSED`（可重试，提示桌面端已暂停）、TLS 指纹不匹配（不可重试，提示重新配对）、网络错误（可重试）。
+5. **发送方向**：拍照方向由重力传感器驱动 `ImageCapture.targetRotation`（竖拿竖拍、横拿横拍），与系统"自动旋转"设置无关；Activity 锁定竖屏。
+
 ## 错误模型
 
 统一返回（HTTP 状态码见下表）：
@@ -169,9 +177,12 @@ metadata 字段：
 | FILE_TOO_LARGE | 413 |
 | UNSUPPORTED_MEDIA_TYPE | 415 |
 | TRANSFER_HASH_MISMATCH | 422 |
+| SERVICE_PAUSED | 503 |
 | DISK_WRITE_FAILED | 500 |
 | NOT_FOUND | 404 |
 | 其他（INVALID_REQUEST 等） | 400 |
+
+`SERVICE_PAUSED`（503）：桌面端托盘"暂停接收"开启时，已鉴权的上传请求返回该错误（幂等 GET 状态查询不受影响）；手机端提示"桌面端已暂停接收"，标记为可重试。
 
 ## 证书与指纹
 

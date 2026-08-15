@@ -2,7 +2,6 @@ package com.phonelink.app
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -10,7 +9,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,7 +20,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -41,6 +38,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.phonelink.app.transfer.SendUiState
+import com.phonelink.app.transfer.TransferViewModel
+import com.phonelink.app.ui.CameraScreen
+import com.phonelink.app.ui.CapturePreviewScreen
+import com.phonelink.app.ui.SendCompletedScreen
+import com.phonelink.app.ui.SendFailedScreen
+import com.phonelink.app.ui.UploadingScreen
 import com.phonelink.app.ui.theme.PhoneLinkTheme
 
 class MainActivity : ComponentActivity() {
@@ -84,14 +88,15 @@ class MainActivity : ComponentActivity() {
 private fun AppRoot(
     onRequestCamera: (() -> Unit) -> Unit,
 ) {
-    val vm: HomeViewModel = viewModel()
-    var state by remember { mutableStateOf(vm.uiState) }
+    val homeVm: HomeViewModel = viewModel()
+    val transferVm: TransferViewModel = viewModel()
+    var state by remember { mutableStateOf(homeVm.uiState) }
 
     LaunchedEffect(Unit) {
-        vm.start()
+        homeVm.start()
     }
 
-    val s = vm.uiState
+    val s = homeVm.uiState
     LaunchedEffect(s) {
         state = s
     }
@@ -100,11 +105,11 @@ private fun AppRoot(
         HomeUiState.NoPairing -> HomeContent(
             status = "未配对",
             statusColor = Color(0xFF9CA3AF),
-            onScan = { onRequestCamera { vm.startScan() } },
+            onScan = { onRequestCamera { homeVm.startScan() } },
         )
         HomeUiState.Scanning -> ScanScreen(
-            onDecoded = { vm.onQrDecoded(it) },
-            onCancel = { vm.cancelScan() },
+            onDecoded = { homeVm.onQrDecoded(it) },
+            onCancel = { homeVm.cancelScan() },
         )
         HomeUiState.Pairing -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -113,33 +118,134 @@ private fun AppRoot(
                 Text("正在配对…")
             }
         }
-        is HomeUiState.Paired -> HomeContent(
-            status = when (current.connection) {
-                ConnectionState.Connecting -> "连接中…"
-                ConnectionState.Online -> "已连接"
-                ConnectionState.Offline -> "离线"
-                ConnectionState.Revoked -> "已撤销"
-            },
-            statusColor = when (current.connection) {
-                ConnectionState.Online -> Color(0xFF22C55E)
-                ConnectionState.Offline -> Color(0xFFF59E0B)
-                ConnectionState.Revoked -> Color(0xFFEF4444)
-                ConnectionState.Connecting -> Color(0xFF9CA3AF)
-            },
+        is HomeUiState.Paired -> CameraRoot(
             desktopName = current.desktopName,
-            onScan = { onRequestCamera { vm.startScan() } },
-            onRefresh = { vm.reconnect() },
-            onUnpair = { vm.clearPairing() },
+            connectionOnline = current.connection == ConnectionState.Online,
+            vm = transferVm,
+            onReconnect = { homeVm.reconnect() },
+            onUnpair = { homeVm.clearPairing() },
         )
         is HomeUiState.Error -> ErrorContent(
             message = current.message,
             canRetryPair = current.canRetryPair,
-            hasPairing = vm.hasPairing(),
-            onRetryPair = { onRequestCamera { vm.startScan() } },
-            onReconnect = { vm.reconnect() },
-            onUnpair = { vm.clearPairing() },
+            hasPairing = homeVm.hasPairing(),
+            onRetryPair = { onRequestCamera { homeVm.startScan() } },
+            onReconnect = { homeVm.reconnect() },
+            onUnpair = { homeVm.clearPairing() },
         )
     }
+}
+
+/** 已配对首页：顶部连接状态 + 相机/发送流程。 */
+@Composable
+private fun CameraRoot(
+    desktopName: String,
+    connectionOnline: Boolean,
+    vm: TransferViewModel,
+    onReconnect: () -> Unit,
+    onUnpair: () -> Unit,
+) {
+    val sendState = vm.sendState
+    var showSettings by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier
+                    .size(10.dp)
+                    .background(
+                        if (connectionOnline) Color(0xFF22C55E) else Color(0xFFF59E0B),
+                        CircleShape,
+                    )
+            )
+            Spacer(Modifier.size(8.dp))
+            Text(
+                "$desktopName  ${if (connectionOnline) "在线" else "离线"}",
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Spacer(Modifier.weight(1f))
+            OutlinedButton(onClick = { showSettings = true }, modifier = Modifier.height(36.dp)) {
+                Text("设备")
+            }
+        }
+
+        when (sendState) {
+            SendUiState.Idle -> CameraScreen(
+                shutterEnabled = true,
+                onCapture = { file, capturedAt -> vm.onCaptured(file, capturedAt) },
+                onGalleryPicked = { uri -> vm.onGalleryPicked(uri) },
+            )
+            SendUiState.Preparing -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator()
+                    Spacer(Modifier.height(16.dp))
+                    Text("正在处理图片…")
+                }
+            }
+            is SendUiState.Preview -> CapturePreviewScreen(
+                previewFile = sendState.previewFile,
+                onRetake = { vm.retake() },
+                onSend = { vm.send() },
+            )
+            is SendUiState.Uploading -> UploadingScreen(sendState.percent)
+            is SendUiState.Completed -> SendCompletedScreen(
+                desktopName = sendState.desktopName,
+                onDone = { vm.done() },
+            )
+            is SendUiState.Failed -> SendFailedScreen(
+                message = sendState.failure.userMessage,
+                canRetry = sendState.failure.canRetry,
+                onRetry = { vm.retry() },
+                onDiscard = { vm.done() },
+            )
+        }
+    }
+
+    if (showSettings) {
+        DeviceSettingsSheet(
+            desktopName = desktopName,
+            connectionOnline = connectionOnline,
+            onReconnect = onReconnect,
+            onUnpair = onUnpair,
+            onDismiss = { showSettings = false },
+        )
+    }
+}
+
+@Composable
+private fun DeviceSettingsSheet(
+    desktopName: String,
+    connectionOnline: Boolean,
+    onReconnect: () -> Unit,
+    onUnpair: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("设备") },
+        text = {
+            Column {
+                Text("桌面端：$desktopName")
+                Spacer(Modifier.height(4.dp))
+                Text(if (connectionOnline) "状态：已连接" else "状态：离线")
+            }
+        },
+        confirmButton = {
+            OutlinedButton(onClick = onReconnect) { Text("重新检查连接") }
+        },
+        dismissButton = {
+            Row {
+                OutlinedButton(onClick = onUnpair) { Text("解除配对") }
+                Spacer(Modifier.size(8.dp))
+                Button(onClick = onDismiss) { Text("关闭") }
+            }
+        },
+    )
 }
 
 @Composable

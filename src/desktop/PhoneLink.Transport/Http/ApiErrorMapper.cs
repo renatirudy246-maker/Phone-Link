@@ -11,6 +11,7 @@ public static class ApiErrorMapper
         ErrorCodes.FileTooLarge => StatusCodes.Status413PayloadTooLarge,
         ErrorCodes.UnsupportedMediaType => StatusCodes.Status415UnsupportedMediaType,
         ErrorCodes.TransferHashMismatch => StatusCodes.Status422UnprocessableEntity,
+        ErrorCodes.ServicePaused => StatusCodes.Status503ServiceUnavailable,
         ErrorCodes.DiskWriteFailed or ErrorCodes.AiProviderError => StatusCodes.Status500InternalServerError,
         ErrorCodes.NotFound => StatusCodes.Status404NotFound,
         _ => StatusCodes.Status400BadRequest,

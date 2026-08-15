@@ -38,6 +38,13 @@ public sealed class KestrelReceiverHost : IReceiverHost
     private readonly IPairedDeviceRepository _pairedDeviceRepository;
 
     private WebApplication? _app;
+    private volatile bool _isPaused;
+
+    public bool IsPaused => _isPaused;
+
+    public void Pause() => _isPaused = true;
+
+    public void Resume() => _isPaused = false;
 
     public KestrelReceiverHost(
         ReceiverOptions options,
@@ -207,6 +214,12 @@ public sealed class KestrelReceiverHost : IReceiverHost
             if (!validation.IsValid)
             {
                 return AuthError(validation);
+            }
+
+            if (_isPaused)
+            {
+                return ApiErrorMapper.ToResult(new ApiError(
+                    ErrorCodes.ServicePaused, "Receiving is paused.", Retryable: true));
             }
 
             if (!MediaTypeHeaderValue.TryParse(context.Request.ContentType, out var contentType)

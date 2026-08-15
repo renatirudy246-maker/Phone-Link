@@ -42,6 +42,7 @@ public sealed class ReceiverTestHost : IAsyncDisposable
     public IPairedDeviceRepository DeviceRepository { get; }
     public IDeviceIdentityProvider Identity { get; }
     public X509Certificate2 Certificate { get; }
+    public IReceiverHost Receiver => _host;
 
     private ReceiverTestHost(
         KestrelReceiverHost host,

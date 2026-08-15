@@ -28,6 +28,8 @@ MVP 安全要求，按 Phase 逐项落实。
 | 13 | 网络输入长度/格式校验 | ✅ Phase 1（transferId/sha/文件名长度与格式校验、metadata ≤16KB）+ Phase 2（QR ≤2048、端口/指纹格式校验） |
 | 14 | QR 解析失败不 crash | ✅ Phase 2（Android 捕获解析异常并提示，不崩溃） |
 | 15 | mDNS TXT 不含敏感信息 | ✅ Phase 2（仅 version/deviceId/name，无 token/指纹） |
+| 16 | 手机临时文件及时清理 | ✅ Phase 3（拍照原始文件与规范化文件在 cache 私有目录，应用启动清理过期临时文件） |
+| 17 | 上传内容不落盘明文日志 | ✅ Phase 3（手机端上传不写日志文件；调试计时钩子已移除） |
 
 ## 本地存储
 
