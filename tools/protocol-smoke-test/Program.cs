@@ -3,14 +3,18 @@ using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json;
 using PhoneLink.Core;
+using PhoneLink.Core.Pairing;
 using PhoneLink.Infrastructure.Paths;
 
 namespace ProtocolSmokeTest;
 
 /// <summary>
-/// Phase 1 协议冒烟测试：不依赖手机，从本机向运行中的 Desktop Receiver 上传真实图片并验证端到端行为。
+/// Phase 2 协议冒烟测试：走真实配对流程（读取 Desktop 测试钩子产出的 QR payload → POST /v1/pair
+/// 换取 Device Token）后验证端到端行为。不依赖手机、不绕过认证。
 /// 用法：
-///   protocol-smoke-test [--base-url https://127.0.0.1:8484] [--token <token>] [--expect-id <transferId>]
+///   protocol-smoke-test [--base-url https://127.0.0.1:8484]
+///                       [--token <device-token>] [--pair-file <qr-payload-file>]
+///                       [--data-dir <data-dir>] [--expect-id <transferId>]
 /// </summary>
 public static class Program
 {
@@ -22,17 +26,20 @@ public static class Program
 
     private static int _passed;
     private static int _failed;
+    private static string _inboxDir = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "PhoneLink", "inbox");
 
     public static async Task<int> Main(string[] args)
     {
         var baseUrl = GetArg(args, "--base-url") ?? "https://127.0.0.1:8484";
-        var token = GetArg(args, "--token") ?? ReadDevToken();
+        var token = GetArg(args, "--token");
+        var pairFile = GetArg(args, "--pair-file");
+        var dataDir = GetArg(args, "--data-dir");
         var expectId = GetArg(args, "--expect-id");
-
-        if (token is null)
+        if (dataDir is not null)
         {
-            Console.Error.WriteLine("No token: pass --token or run after Desktop created data/dev-token.txt");
-            return 2;
+            _inboxDir = Path.Combine(dataDir, "inbox");
         }
 
         var handler = new HttpClientHandler
@@ -47,13 +54,36 @@ public static class Program
 
         Console.WriteLine("Phone-Link protocol smoke test");
         Console.WriteLine($"  base url: {baseUrl}");
+
+        if (token is null && pairFile is not null)
+        {
+            token = await PairAsync(client, pairFile);
+        }
+
+        if (token is null)
+        {
+            Console.Error.WriteLine("No token: pass --token or --pair-file (QR payload from the Desktop test hook)");
+            return 2;
+        }
+
         Console.WriteLine($"  token   : {token[..8]}... (short)");
         Console.WriteLine();
 
-        await Check("health (no auth) -> protocol version", async () =>
+        if (dataDir is not null)
+        {
+            await Check("dev-token.txt no longer used by production auth", async () =>
+            {
+                var devTokenPath = Path.Combine(dataDir, "dev-token.txt");
+                Assert(!File.Exists(devTokenPath), $"dev-token.txt must not exist ({devTokenPath})");
+            });
+        }
+
+        await Check("health (no auth) -> protocol version + status only", async () =>
         {
             var body = await client.GetFromJsonAsync<JsonElement>("/v1/health");
             Assert(body.GetProperty("protocolVersion").GetInt32() == AppInfo.ProtocolVersion, "protocolVersion");
+            Assert(body.GetProperty("status").GetString() == "ok", "status");
+            Assert(!body.TryGetProperty("deviceId", out _), "no deviceId pre-pair");
         });
 
         await Check("health (auth) -> device identity", async () =>
@@ -175,7 +205,7 @@ public static class Program
             Assert(File.Exists(localPath), $"file exists on disk: {localPath}");
             var onDiskSha = Convert.ToHexString(SHA256.HashData(await File.ReadAllBytesAsync(localPath)));
             Assert(onDiskSha == TestSha(bytes), "SHA-256 matches");
-            Assert(localPath.StartsWith(AppPaths.Default.InboxDir, StringComparison.Ordinal), "file under inbox");
+            Assert(localPath.StartsWith(_inboxDir, StringComparison.Ordinal), $"file under inbox ({_inboxDir})");
         });
         return uploadId!;
     }
@@ -187,7 +217,7 @@ public static class Program
         var response = await client.SendAsync(request);
         Assert(response.StatusCode == HttpStatusCode.OK, "status 200");
         var dto = await response.Content.ReadFromJsonAsync<TransferStatusDto>();
-        return dto.LocalFilePath;
+        return dto?.LocalFilePath ?? string.Empty;
     }
 
     private static async Task<HttpResponseMessage> UploadAsync(
@@ -233,18 +263,36 @@ public static class Program
     private static string TestSha(byte[] bytes)
         => Convert.ToHexString(SHA256.HashData(bytes));
 
-    private static string? ReadDevToken()
+    /// <summary>走真实配对：读取 QR payload → 解码 → POST /v1/pair 换取 Device Token。</summary>
+    private static async Task<string> PairAsync(HttpClient client, string pairFile)
     {
-        try
+        var qrPayload = await File.ReadAllTextAsync(pairFile);
+        var payload = PairingQrCodec.Decode(qrPayload);
+
+        Console.WriteLine($"  pairing: {payload.DesktopDeviceName} @ {payload.Host}:{payload.Port} (session expires {payload.ExpiresAt:O})");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/v1/pair")
         {
-            var path = AppPaths.Default.DevTokenPath;
-            return File.Exists(path) ? File.ReadAllText(path).Trim() : null;
-        }
-        catch (Exception ex)
+            Content = JsonContent.Create(new
+            {
+                oneTimeToken = payload.OneTimeToken,
+                mobileDeviceId = $"smoke-{Guid.NewGuid():N}",
+                mobileDeviceName = "Smoke Test",
+                platform = "other",
+            }),
+        };
+        var response = await client.SendAsync(request);
+        if (!response.IsSuccessStatusCode)
         {
-            Console.Error.WriteLine($"Failed to read dev token: {ex.Message}");
-            return null;
+            var error = await response.Content.ReadFromJsonAsync<JsonElement>();
+            throw new InvalidOperationException(
+                $"pair failed: {(int)response.StatusCode} {error.GetProperty("code").GetString()}");
         }
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert(body.GetProperty("protocolVersion").GetInt32() == AppInfo.ProtocolVersion, "pair protocolVersion");
+        Assert(body.GetProperty("desktopDeviceId").GetString() == payload.DesktopDeviceId, "pair desktopDeviceId");
+        return body.GetProperty("deviceToken").GetString()!;
     }
 
     private static string? GetArg(string[] args, string name)

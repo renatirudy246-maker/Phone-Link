@@ -1,6 +1,11 @@
 namespace PhoneLink.Core.Auth;
 
-public sealed record TokenValidationResult(bool IsValid, string? DeviceId = null);
+public sealed record TokenValidationResult(
+    bool IsValid,
+    string? DeviceId = null,
+    string? DisplayName = null,
+    string? Platform = null,
+    string? ErrorCode = null);
 
 public interface ITokenValidator
 {

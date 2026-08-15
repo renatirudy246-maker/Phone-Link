@@ -13,6 +13,7 @@ public sealed class PhoneLinkDb
         {
             DataSource = paths.DbPath,
             Mode = SqliteOpenMode.ReadWriteCreate,
+            Pooling = false,
         }.ToString();
         Initialize();
     }
@@ -51,6 +52,30 @@ public sealed class PhoneLinkDb
             CREATE TABLE IF NOT EXISTS settings (
                 key   TEXT PRIMARY KEY,
                 value TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS pairing_sessions (
+                session_id             TEXT PRIMARY KEY,
+                one_time_token_hash    TEXT NOT NULL UNIQUE,
+                expires_at             TEXT NOT NULL,
+                desktop_device_id      TEXT NOT NULL,
+                desktop_display_name   TEXT NOT NULL,
+                endpoint               TEXT NOT NULL,
+                certificate_fingerprint TEXT NOT NULL,
+                consumed               INTEGER NOT NULL DEFAULT 0,
+                created_at             TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS paired_devices (
+                device_id              TEXT PRIMARY KEY,
+                display_name           TEXT NOT NULL,
+                platform               TEXT NOT NULL,
+                token_hash             TEXT NOT NULL,
+                certificate_fingerprint TEXT NOT NULL,
+                last_seen_at           TEXT,
+                last_known_endpoint    TEXT,
+                is_trusted             INTEGER NOT NULL DEFAULT 1,
+                paired_at              TEXT NOT NULL
             );
             """;
         command.ExecuteNonQuery();

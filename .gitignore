@@ -29,3 +29,6 @@ Thumbs.db
 %LOCALAPPDATA%/PhoneLink/
 PhoneLink/data/
 PhoneLink/logs/
+# Android Kotlin build cache
+.kotlin/
+

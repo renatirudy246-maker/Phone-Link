@@ -5,21 +5,30 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="Phone-Link"
-        Width="760" Height="520"
+        Width="820" Height="620"
         WindowStartupLocation="CenterScreen">
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="2*"/>
         </Grid.RowDefinitions>
 
-        <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center">
-            <TextBlock Text="Phone-Link" FontSize="26" FontWeight="SemiBold"/>
-            <TextBlock Text="  ·  Phase 1" FontSize="16" Foreground="#999999"
-                       VerticalAlignment="Bottom" Margin="8,0,0,4"/>
-        </StackPanel>
+        <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock Text="Phone-Link" FontSize="26" FontWeight="SemiBold"/>
+                <TextBlock Text="  ·  Phase 2" FontSize="16" Foreground="#999999"
+                           VerticalAlignment="Bottom" Margin="8,0,0,4"/>
+            </StackPanel>
+            <Button Grid.Column="1" Content="＋ 配对新手机" Padding="14,8"
+                    FontWeight="SemiBold" Click="OnPairNewPhoneClick"/>
+        </Grid>
 
         <TextBlock Grid.Row="1" Text="{Binding StatusLine}"
                    Foreground="#666666" Margin="0,8,0,0" FontSize="13"/>
@@ -43,27 +52,87 @@
             </Grid>
         </Border>
 
-        <Grid Grid.Row="3" Margin="0,4,0,0">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="*"/>
-            </Grid.RowDefinitions>
-            <TextBlock Grid.Row="0" Text="Recent" FontWeight="SemiBold" Margin="0,4,0,6"/>
-            <ListBox Grid.Row="1"
-                     ItemsSource="{Binding Recent}"
-                     BorderThickness="0"
-                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <StackPanel Orientation="Horizontal" Margin="0,3">
-                            <TextBlock Text="{Binding TimeLabel}" Foreground="#888888" Width="64"/>
-                            <TextBlock Text="{Binding FileName}" Foreground="#333333" Width="220"
-                                       TextTrimming="CharacterEllipsis"/>
-                            <TextBlock Text="{Binding StatusLabel}" Foreground="#4CAF50"/>
-                        </StackPanel>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
+        <Border Grid.Row="3" Margin="0,8,0,4"
+                Background="#FAFAFA" BorderBrush="#DDDDDD" BorderThickness="1" CornerRadius="8"
+                Padding="10,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock Text="Paired Devices" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                <TextBlock Grid.Column="1" Text="{Binding Devices.Count, StringFormat=共 {0} 台}"
+                           Foreground="#888888" VerticalAlignment="Center"/>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="4" Margin="0,0,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="220"/>
+            </Grid.ColumnDefinitions>
+
+            <Grid Grid.Column="0" Margin="0,0,12,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="Recent" FontWeight="SemiBold" Margin="0,4,0,6"/>
+                <ListBox Grid.Row="1"
+                         ItemsSource="{Binding Recent}"
+                         BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Margin="0,3">
+                                <TextBlock Text="{Binding TimeLabel}" Foreground="#888888" Width="64"/>
+                                <TextBlock Text="{Binding FileName}" Foreground="#333333" Width="180"
+                                           TextTrimming="CharacterEllipsis"/>
+                                <TextBlock Text="{Binding StatusLabel}" Foreground="#4CAF50"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="Devices" FontWeight="SemiBold" Margin="0,4,0,6"/>
+                <ListBox Grid.Row="1"
+                         ItemsSource="{Binding Devices}"
+                         BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="0,4">
+                                <DockPanel>
+                                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"/>
+                                    <Ellipse Width="8" Height="8" Margin="6,0,0,0"
+                                             VerticalAlignment="Center">
+                                        <Ellipse.Fill>
+                                            <SolidColorBrush Color="{Binding StatusColor}"/>
+                                        </Ellipse.Fill>
+                                    </Ellipse>
+                                    <TextBlock Text="{Binding StatusLabel}" Foreground="#666666"
+                                               Margin="6,0,0,0" VerticalAlignment="Center"/>
+                                </DockPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                    <TextBlock Text="{Binding Platform}" Foreground="#888888" Width="70"/>
+                                    <TextBlock Text="{Binding LastSeenLabel}" Foreground="#AAAAAA"/>
+                                </StackPanel>
+                                <Button Content="撤销信任" FontSize="11" Padding="8,2" Margin="0,4,0,0"
+                                        HorizontalAlignment="Left"
+                                        Visibility="{Binding IsTrusted, Converter={StaticResource BoolToVisible}}"
+                                        Click="OnRevokeClick"
+                                        Tag="{Binding DeviceId}"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
         </Grid>
     </Grid>
 </Window>

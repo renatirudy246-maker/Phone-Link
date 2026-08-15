@@ -23,7 +23,7 @@
 │  │  ├─ PhoneLink.AI          AI Vision Provider
 │  │  └─ PhoneLink.Desktop     WPF 桌面端（托盘 / 预览）
 │  └─ android/
-│     └─ PhoneLinkAndroid      Kotlin + Compose + CameraX
+│     └─ PhoneLinkAndroid      Kotlin + Compose + CameraX（扫码配对 / NSD 发现 / 指纹钉扎）
 ├─ tests/
 │  ├─ PhoneLink.Core.Tests
 │  ├─ PhoneLink.Transport.Tests
@@ -31,7 +31,9 @@
 └─ tools/
    ├─ build-desktop.ps1
    ├─ build-android.ps1
-   └─ protocol-smoke-test/     协议冒烟测试（Phase 1）
+   ├─ protocol-smoke-test/     协议冒烟测试
+   ├─ qr-show/                 QR 生成/验证 + 设备管理（revoke/restore/reset-cert）
+   └─ qr-fullscreen/           全屏显示配对二维码（实机验收用）
 ```
 
 ## 技术栈
@@ -58,11 +60,17 @@
 
 ```
 %LOCALAPPDATA%\PhoneLink\
-├─ data\phonelink.db     元数据（SQLite）
+├─ data\phonelink.db     元数据（SQLite：设备、token 哈希、传输记录）
 ├─ inbox\YYYY-MM-DD\     收到的图片（<transferId>.jpg/png/webp）
 ├─ logs\                 运行日志
 └─ temp\                 上传中间文件（成功后移入 inbox）
 ```
+
+## 配对流程
+
+1. 桌面端启动 → 生成自签证书（持久化）+ mDNS 广告 `_phonelink._tcp.local` + 3 分钟有效配对二维码
+2. 手机扫描二维码 → 校验证书指纹（DER SHA-256 钉扎）+ 一次性 token 换长期 Device Token
+3. 手机通过 NSD 发现桌面端自动重连；桌面端可随时撤销设备（撤销后手机立即失效）
 
 ## 当前状态
 

@@ -6,5 +6,8 @@
     <Application.Resources>
         <converters:NullOrEmptyToVisibleConverter x:Key="NullOrEmptyToVisible"/>
         <converters:NonEmptyToVisibleConverter x:Key="NonEmptyToVisible"/>
+        <converters:NonNullToVisibleConverter x:Key="NonNullToVisible"/>
+        <converters:BoolToVisibleConverter x:Key="BoolToVisible"/>
+        <converters:InverseBoolToVisibleConverter x:Key="InverseBoolToVisible"/>
     </Application.Resources>
 </Application>

@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Threading;
 using PhoneLink.Core;
 using PhoneLink.Core.Models;
+using PhoneLink.Core.Pairing;
 using PhoneLink.Core.Transfers;
 
 namespace PhoneLink.Desktop.ViewModels;
@@ -13,6 +14,9 @@ public sealed class MainViewModel : INotifyPropertyChanged
 {
     private readonly ITransferEventSource _events;
     private readonly ITransferRepository _repository;
+    private readonly IPairedDeviceRepository _deviceRepository;
+    private readonly IPairingSessionService _pairingSessionService;
+    private readonly DispatcherTimer _refreshTimer;
 
     private string _statusLine = "正在初始化…";
     private string _latestImagePath = string.Empty;
@@ -31,12 +35,65 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public ObservableCollection<RecentItem> Recent { get; } = [];
 
-    public MainViewModel(ITransferEventSource events, ITransferRepository repository)
+    public ObservableCollection<DeviceItem> Devices { get; } = [];
+
+    public event EventHandler<PairingWindowViewModel>? PairingRequested;
+
+    public MainViewModel(
+        ITransferEventSource events,
+        ITransferRepository repository,
+        IPairedDeviceRepository deviceRepository,
+        IPairingSessionService pairingSessionService)
     {
         _events = events;
         _repository = repository;
+        _deviceRepository = deviceRepository;
+        _pairingSessionService = pairingSessionService;
         _events.Received += OnTransferReceived;
         _ = LoadRecentAsync();
+        _ = RefreshDevicesAsync();
+
+        _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(5) };
+        _refreshTimer.Tick += async (_, _) => await RefreshDevicesAsync();
+        _refreshTimer.Start();
+    }
+
+    public void OpenPairing()
+    {
+        var window = new PairingWindowViewModel(_pairingSessionService);
+        PairingRequested?.Invoke(this, window);
+    }
+
+    public async Task RevokeAsync(string deviceId)
+    {
+        await _deviceRepository.SetRevokedAsync(deviceId, revoked: true, CancellationToken.None);
+        await RefreshDevicesAsync();
+    }
+
+    private async Task RefreshDevicesAsync()
+    {
+        try
+        {
+            var devices = await _deviceRepository.ListAllAsync(CancellationToken.None);
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher is null)
+            {
+                return;
+            }
+
+            await dispatcher.InvokeAsync(() =>
+            {
+                Devices.Clear();
+                foreach (var device in devices)
+                {
+                    Devices.Add(DeviceItem.From(device));
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Refresh devices failed: {ex.Message}");
+        }
     }
 
     private async Task LoadRecentAsync()
@@ -118,4 +175,28 @@ public sealed record RecentItem(string TimeLabel, string FileName, string Status
             record.ReceivedAt.ToLocalTime().ToString("HH:mm:ss"),
             record.OriginalFileName,
             record.Status == TransferStatus.Completed ? "已接收" : record.ErrorCode ?? record.Status.ToString());
+}
+
+public sealed record DeviceItem(
+    string DeviceId,
+    string DisplayName,
+    string Platform,
+    string LastSeenLabel,
+    string StatusLabel,
+    bool IsTrusted,
+    string StatusColor)
+{
+    public static DeviceItem From(PairedDevice device)
+    {
+        var lastSeen = device.LastSeenAt?.ToLocalTime().ToString("MM-dd HH:mm") ?? "从未";
+        var trusted = device.IsTrusted;
+        return new DeviceItem(
+            device.DeviceId,
+            device.DisplayName,
+            device.Platform,
+            lastSeen,
+            trusted ? "已信任" : "已撤销",
+            trusted,
+            trusted ? "#4CAF50" : "#C62828");
+    }
 }

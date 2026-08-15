@@ -23,6 +23,7 @@ public class PersistenceTests
             // 第一次启动：上传
             await using (var host = await ReceiverTestHost.StartAsyncWithBaseDir(baseDir))
             {
+                await host.PairAsync(mobileDeviceId: "mobile-persist-1");
                 var response = await host.UploadAsync(TestImages.TinyJpeg, "image/jpeg");
                 Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
                 var body = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -33,6 +34,7 @@ public class PersistenceTests
             // 重启（新进程语义：同数据目录新 host 实例）
             await using (var host = await ReceiverTestHost.StartAsyncWithBaseDir(baseDir))
             {
+                await host.PairAsync(mobileDeviceId: "mobile-persist-1");
                 var record = await host.Repository.GetByIdAsync(transferId, CancellationToken.None);
                 Assert.NotNull(record);
                 Assert.Equal(TransferStatus.Completed, record!.Status);
@@ -68,6 +70,7 @@ public class PersistenceTests
     public async Task Repository_GetRecent_ReturnsNewestFirst()
     {
         await using var host = await ReceiverTestHost.StartAsync();
+        await host.PairAsync();
 
         var first = await host.UploadAsync(TestImages.TinyJpeg, "image/jpeg");
         var second = await host.UploadAsync(TestImages.TinyPng, "image/png");

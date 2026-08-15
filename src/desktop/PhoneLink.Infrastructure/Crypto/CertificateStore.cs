@@ -7,17 +7,30 @@ namespace PhoneLink.Infrastructure.Crypto;
 
 /// <summary>
 /// Desktop TLS 身份：首次运行生成自签证书并持久化到当前用户证书库（DPAPI 保护）。
-/// Phase 2 将基于该证书做 fingerprint pinning。
+/// 后续重启继续使用同一证书（Android fingerprint pinning 的前提）。
+/// storeName/location 可注入以便测试隔离（默认当前用户 My 库）。
 /// </summary>
 public sealed class CertificateStore : ITlsCertificateProvider
 {
     private const string SubjectName = "PhoneLink-Desktop";
-    private const StoreName Store = StoreName.My;
-    private const StoreLocation Location = StoreLocation.CurrentUser;
+    private readonly string _storeName;
+    private readonly StoreLocation _location;
+
+    public CertificateStore()
+        : this("My", StoreLocation.CurrentUser)
+    {
+    }
+
+    /// <summary>storeName 可注入以便测试隔离（默认当前用户 My 库）。</summary>
+    public CertificateStore(string storeName, StoreLocation location)
+    {
+        _storeName = storeName;
+        _location = location;
+    }
 
     public X509Certificate2 GetOrCreateCertificate()
     {
-        using var store = new X509Store(Store, Location);
+        using var store = new X509Store(_storeName, _location);
         store.Open(OpenFlags.ReadWrite);
 
         var existing = store.Certificates
@@ -32,7 +45,7 @@ public sealed class CertificateStore : ITlsCertificateProvider
 
         var created = CreateSelfSigned();
 
-        using var persisted = new X509Certificate2(
+        using var persisted = X509CertificateLoader.LoadPkcs12(
             created.Export(X509ContentType.Pfx),
             (string?)null,
             X509KeyStorageFlags.Exportable | X509KeyStorageFlags.PersistKeySet);
