@@ -7,7 +7,9 @@ Phase 0 — Repository Bootstrap
 COMPLETED (2026-08-15)
 
 ## Last Verified Commit
-(将在 git commit 后回填 hash)
+e1bb9bf (phase-0: bootstrap phone-link workspace)
+
+> 注：本机 git 未配置 user.name/user.email，提交时用临时 `-c user.name="PhoneLink Agent" -c user.email="agent@phonelink.local"` 完成，未修改全局配置。如需调整作者可 `git commit --amend --reset-author`。
 
 ## Completed
 - [x] 仓库初始化：git init、.gitignore、目录结构（src/desktop、src/android、tests、tools、docs）
