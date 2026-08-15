@@ -12,6 +12,8 @@ public static class ErrorCodes
     public const string UnsupportedMediaType = "UNSUPPORTED_MEDIA_TYPE";
     public const string TransferHashMismatch = "TRANSFER_HASH_MISMATCH";
     public const string DiskWriteFailed = "DISK_WRITE_FAILED";
+    public const string InvalidRequest = "INVALID_REQUEST";
+    public const string NotFound = "NOT_FOUND";
     public const string NetworkTimeout = "NETWORK_TIMEOUT";
     public const string DesktopOffline = "DESKTOP_OFFLINE";
     public const string AiAuthFailed = "AI_AUTH_FAILED";

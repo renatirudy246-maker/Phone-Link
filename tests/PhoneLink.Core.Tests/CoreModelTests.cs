@@ -106,13 +106,23 @@ public class TransferManifestTests
         var record = new TransferRecord(
             TransferId: "t-1",
             SenderDeviceId: "mobile-1",
+            OriginalFileName: "question.jpg",
+            MimeType: "image/jpeg",
+            FileSize: 1024,
+            Width: 3000,
+            Height: 4000,
+            Sha256: "abc",
+            CapturedAt: DateTimeOffset.UtcNow,
+            SentAt: DateTimeOffset.UtcNow,
+            Purpose: TransferPurpose.Question,
             LocalFilePath: @"C:\inbox\t-1.jpg",
-            ThumbnailPath: @"C:\thumbs\t-1.jpg",
+            ThumbnailPath: null,
             ReceivedAt: DateTimeOffset.UtcNow,
             Status: TransferStatus.Completed,
             ErrorCode: null);
 
         Assert.Equal(TransferStatus.Completed, record.Status);
         Assert.Null(record.ErrorCode);
+        Assert.Null(record.ThumbnailPath);
     }
 }

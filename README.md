@@ -49,6 +49,19 @@
 
 # Android: debug 构建（自动使用本机 JDK 17）
 .\tools\build-android.ps1
+
+# 端到端冒烟测试（启动真实 Desktop → 本机上传 → 重启验证持久化）
+.\tools\run-smoke-test.ps1
+```
+
+## 数据位置
+
+```
+%LOCALAPPDATA%\PhoneLink\
+├─ data\phonelink.db     元数据（SQLite）
+├─ inbox\YYYY-MM-DD\     收到的图片（<transferId>.jpg/png/webp）
+├─ logs\                 运行日志
+└─ temp\                 上传中间文件（成功后移入 inbox）
 ```
 
 ## 当前状态

@@ -11,8 +11,17 @@ public enum TransferStatus
 public sealed record TransferRecord(
     string TransferId,
     string SenderDeviceId,
+    string OriginalFileName,
+    string MimeType,
+    long FileSize,
+    int? Width,
+    int? Height,
+    string Sha256,
+    DateTimeOffset CapturedAt,
+    DateTimeOffset SentAt,
+    TransferPurpose Purpose,
     string LocalFilePath,
-    string ThumbnailPath,
+    string? ThumbnailPath,
     DateTimeOffset ReceivedAt,
     TransferStatus Status,
     string? ErrorCode);

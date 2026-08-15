@@ -1,46 +1,48 @@
 # Phone-Link Project Status
 
 ## Current Phase
-Phase 0 — Repository Bootstrap
+Phase 1 — Windows Local Receiver
 
 ## Status
 COMPLETED (2026-08-15)
 
 ## Last Verified Commit
-e1bb9bf (phase-0: bootstrap phone-link workspace)
-
-> 注：本机 git 未配置 user.name/user.email，提交时用临时 `-c user.name="PhoneLink Agent" -c user.email="agent@phonelink.local"` 完成，未修改全局配置。如需调整作者可 `git commit --amend --reset-author`。
+Phase 0: e1bb9bf（含状态补充提交）
 
 ## Completed
-- [x] 仓库初始化：git init、.gitignore、目录结构（src/desktop、src/android、tests、tools、docs）
-- [x] Desktop solution（PhoneLink.slnx）：Core / Transport / Infrastructure / AI / Desktop(WPF) 5 项目
-- [x] Core 领域模型：DeviceIdentity、PairedDevice、PairingSession、TransferManifest、TransferRecord、TransferPurpose、TransferStatus、ErrorCodes、ApiError、IAiVisionProvider、AppInfo（协议常量、25MB 限制、MIME 白名单）
-- [x] Desktop 最小主窗口（WPF + 简单 MVVM，DataContext=MainViewModel）
-- [x] 测试项目 3 个：Core.Tests / Transport.Tests / IntegrationTests（24 个测试）
-- [x] Android 工程：Kotlin 2.0.21 + Compose BOM 2024.09.03 + AGP 8.7.2 + Gradle 8.14.3 wrapper
-- [x] Android 最小首页（相机预览占位 + 拍照/相册/历史按钮）
-- [x] 构建脚本：tools/build-desktop.ps1、tools/build-android.ps1
-- [x] 文档：README.md、docs/PROTOCOL.md、docs/SECURITY.md、docs/TESTING.md
+- [x] 仓库结构 / 解决方案 / 双端骨架（Phase 0）
+- [x] Desktop 启动本地 HTTPS Receiver（Kestrel，监听 0.0.0.0:8484，自签证书）
+- [x] 本机 DeviceIdentity（`desktop-<guid>`，SQLite settings 持久化）
+- [x] SQLite 持久化（transfers + settings 表，Microsoft.Data.Sqlite）
+- [x] GET /v1/health：无 token 最小响应（仅协议版本）/ 有效 token 完整身份
+- [x] POST /v1/transfers：multipart 上传（metadata + file，metadata 必须在 file 前）
+- [x] GET /v1/transfers/{id}：状态确认（幂等/重试去重用）
+- [x] Transfer 管线：temp 写入 → 25MB 上限 → MIME 白名单+文件头校验 → SHA-256 → 原子移动 → SQLite → 事件 → UI
+- [x] 服务端生成文件名 `<transferId>.<ext>`，不使用客户端路径/文件名（防路径穿越）
+- [x] 开发期 Token（Dev Token，256-bit 随机，与未来 Device Token 机制通过 ITokenValidator 解耦）
+- [x] 异常路径：伪造 MIME、超 25MB、hash mismatch、路径穿越、重复 transferId（幂等）、写盘失败、坏 JSON、缺 part
+- [x] 事件总线（TransferEventBus）：文件接收/哈希在后台线程，UI 通过 Dispatcher 更新，不阻塞 UI
+- [x] Desktop UI：Latest 图片 + Recent 列表，全部来自真实 SQLite 数据；重启后历史恢复
+- [x] tools/protocol-smoke-test：不依赖手机的端到端冒烟（13 场景全部 PASS，含重启持久化）
+- [x] 日志：Serilog 文件日志（%LOCALAPPDATA%\PhoneLink\logs\），短 ID，无 token/Authorization 泄露
+- [x] 文档：docs/PROTOCOL.md、docs/SECURITY.md、docs/TESTING.md 已按 Phase 1 更新
 
 ## Verification
-- Desktop build: 成功（0 warning / 0 error，net10.0 + net10.0-windows）
-- Desktop tests: 24/24 通过（Core 21、Transport 2、Integration 1）
-- Android build: 成功（:app:assembleDebug，APK 9.4 MB）
-- Manual test: Desktop 启动到主窗口（见下方记录）；Android 需真机/模拟器（本机无，留待 Phase 3 前验证）
-
-## 环境决策（§0.12 小决策记录）
-- .NET SDK 10.0.302 → TargetFramework net10.0（LTS）
-- Gradle 8.14.3 + AGP 8.7.2 + Kotlin 2.0.21 + compose plugin 2.0.21（全部来自本机缓存，已验证可构建）
-- JDK 17（~/.gradle/jdks）用于 Android 构建（AGP 8.x 要求）
-- Android SDK：D:\AndroidEnv\Sdk（platforms 35/36，compileSdk=35）
-- 解决方案文件用 .slnx（.NET 10 默认格式）
-- minSdk 26 / targetSdk 35；android:theme 用系统 Material Light NoActionBar（Phase 0 不引入 appcompat 依赖）
+- Desktop build: ✅ 0 warning / 0 error（含 tools/protocol-smoke-test）
+- Desktop tests: ✅ 71/71（Core 22、Transport 28、Integration 21）
+- Smoke test: ✅ 12/12 首轮 + 重启后 13/13（真实 Desktop 应用）
+- 文件落盘: ✅ `%LOCALAPPDATA%\PhoneLink\inbox\2026-08-15\<transferId>.jpg/png`，SHA-256 与上传一致
+- UI: ✅ 应用带真实历史启动正常（Latest/Recent 绑定 SQLite）
+- 重启持久化: ✅ 重启后 GET /v1/transfers/{id} 返回 completed，DB 记录与文件保留
+- 非法 MIME / >25MB / 路径穿越: ✅ 均被拒绝（415/413/安全命名）
 
 ## Known Issues
-- 本机无 adb / 模拟器 / 真机，Android 启动到主界面未做手工验证（仅构建通过）
-- WPF 最小窗口尚未做托盘、Generic Host（Phase 1 引入）
-- 暂无 git commit（待本阶段验收后统一提交）
+- 无托盘（规范 §11.2 属于 UI 要求，未列入 Phase 1 验收，建议 Phase 3 前补）
+- Dev Token 明文存放 data/dev-token.txt（Phase 1 临时方案，Phase 2 移除并换每设备 Token）
+- Windows 防火墙：首次监听局域网端口可能弹出允许提示，需用户允许（文档已说明）
+- 上传 metadata 要求先于 file part（协议文档已明确，客户端实现时遵守）
+- Android 端尚未实现网络功能（属 Phase 2/3 范围）
 
 ## Next Action
-- 提交 Phase 0（建议 commit: `phase-0: bootstrap phone-link workspace`）
-- 用户确认后进入 Phase 1（Windows Local Receiver：Kestrel HTTPS、/v1/health、SQLite、Transfer Service、smoke test）
+- 提交 Phase 1（建议 commit: `phase-1: add local image receiver`）
+- 用户确认后进入 Phase 2：Secure QR Pairing + Discovery（TLS 身份持久化、PairingSession、/v1/pair、每设备 token、撤销、mDNS 发布、Android 扫码/指纹钉扎/NSD）
