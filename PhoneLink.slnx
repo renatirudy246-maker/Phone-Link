@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/desktop/">
+    <Project Path="src/desktop/PhoneLink.AI/PhoneLink.AI.csproj" />
+    <Project Path="src/desktop/PhoneLink.Core/PhoneLink.Core.csproj" />
+    <Project Path="src/desktop/PhoneLink.Desktop/PhoneLink.Desktop.csproj" />
+    <Project Path="src/desktop/PhoneLink.Infrastructure/PhoneLink.Infrastructure.csproj" />
+    <Project Path="src/desktop/PhoneLink.Transport/PhoneLink.Transport.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PhoneLink.Core.Tests/PhoneLink.Core.Tests.csproj" />
+    <Project Path="tests/PhoneLink.IntegrationTests/PhoneLink.IntegrationTests.csproj" />
+    <Project Path="tests/PhoneLink.Transport.Tests/PhoneLink.Transport.Tests.csproj" />
+  </Folder>
+</Solution>

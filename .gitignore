@@ -1,0 +1,31 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.binlog
+TestResults/
+
+# Android
+.gradle/
+build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.keystore
+!debug.keystore
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Local runtime data
+%LOCALAPPDATA%/PhoneLink/
+PhoneLink/data/
+PhoneLink/logs/
