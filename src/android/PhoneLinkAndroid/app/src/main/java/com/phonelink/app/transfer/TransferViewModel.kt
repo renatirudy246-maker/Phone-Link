@@ -43,6 +43,10 @@ class TransferViewModel(app: Application) : AndroidViewModel(app) {
     var sendState by mutableStateOf<SendUiState>(SendUiState.Idle)
         private set
 
+    /** 最近一次 Preview 的来源：true=相机拍摄（重拍/成功后回 Camera），false=相册（回 Home）。 */
+    var previewFromCamera by mutableStateOf(true)
+        private set
+
     init {
         cleanupStaleTempFiles()
     }
@@ -53,6 +57,7 @@ class TransferViewModel(app: Application) : AndroidViewModel(app) {
     /** 拍照完成回调（CameraX 已写入 cache 原图）→ 后台规范化 → Preview。 */
     fun onCaptured(photoFile: File, capturedAt: OffsetDateTime) {
         if (sending) return
+        previewFromCamera = true
         sendState = SendUiState.Preparing
         viewModelScope.launch {
             val result = withContext(Dispatchers.Default) {
@@ -82,6 +87,7 @@ class TransferViewModel(app: Application) : AndroidViewModel(app) {
     /** Gallery 选择（Content URI）→ 后台规范化 → Preview。 */
     fun onGalleryPicked(uri: Uri) {
         if (sending) return
+        previewFromCamera = false
         sendState = SendUiState.Preparing
         viewModelScope.launch {
             val result = withContext(Dispatchers.Default) {

@@ -58,8 +58,26 @@ class SecureStore(context: Context) {
         return host to port
     }
 
+    /**
+     * 安装级稳定 DeviceId：首次调用生成并持久化，之后复用。
+     * 明文存储（DeviceId 非凭据，仅标识），解除配对/重新配对不清除。
+     */
+    fun getOrCreateDeviceId(): String {
+        prefs.getString(KEY_DEVICE_ID, null)?.let { return it }
+        val id = DeviceIdentity.generateMobileDeviceId()
+        prefs.edit().putString(KEY_DEVICE_ID, id).apply()
+        return id
+    }
+
     fun clear() {
-        prefs.edit().clear().apply()
+        // 注意：KEY_DEVICE_ID 不清除——解除配对只清除配对凭据，
+        // 安装级 DeviceId 保持不变，重新配对继续复用同一身份。
+        prefs.edit()
+            .remove(KEY_TOKEN)
+            .remove(KEY_DESKTOP_ID)
+            .remove(KEY_DESKTOP_NAME)
+            .remove(KEY_FINGERPRINT)
+            .apply()
         deleteKey()
     }
 
@@ -124,6 +142,7 @@ class SecureStore(context: Context) {
         private const val KEY_FINGERPRINT = "certificate_fingerprint"
         private const val KEY_ENDPOINT_HOST = "endpoint_host"
         private const val KEY_ENDPOINT_PORT = "endpoint_port"
+        private const val KEY_DEVICE_ID = "device_id"
         private const val ANDROID_KEYSTORE = "AndroidKeyStore"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
     }

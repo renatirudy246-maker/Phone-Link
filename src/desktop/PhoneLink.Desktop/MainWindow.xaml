@@ -5,173 +5,151 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="Phone-Link"
-        Width="820" Height="620"
+        FontFamily="{StaticResource AppFont}"
+        Width="1120" Height="760"
+        MinWidth="900" MinHeight="620"
         WindowStartupLocation="CenterScreen">
-    <Grid Margin="20">
+    <Grid Margin="24,18,24,20">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="2*"/>
         </Grid.RowDefinitions>
 
-        <Grid Grid.Row="0">
+        <!-- Header: title + live status | pause + device -->
+        <Grid Grid.Row="0" Margin="0,0,0,14">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <TextBlock Text="Phone-Link" FontSize="26" FontWeight="SemiBold"/>
-                <TextBlock Text="  ·  Phase 2" FontSize="16" Foreground="#999999"
-                           VerticalAlignment="Bottom" Margin="8,0,0,4"/>
+            <StackPanel>
+                <TextBlock Text="Phone-Link" Style="{StaticResource TitleText}"/>
+                <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                    <Ellipse Width="8" Height="8" Margin="0,0,7,0" VerticalAlignment="Center">
+                        <Ellipse.Fill>
+                            <SolidColorBrush Color="{Binding StatusDotColor}"/>
+                        </Ellipse.Fill>
+                    </Ellipse>
+                    <TextBlock Text="{Binding StatusLine}" Style="{StaticResource BodyText}"/>
+                </StackPanel>
             </StackPanel>
-            <Button Grid.Column="1" Content="＋ 配对新手机" Padding="14,8"
-                    FontWeight="SemiBold" Click="OnPairNewPhoneClick"/>
+            <Button Grid.Column="1" Margin="0,0,10,0" Click="OnTogglePauseClick">
+                <Button.Style>
+                    <Style TargetType="Button" BasedOn="{StaticResource GhostButtonStyle}">
+                        <Setter Property="Content" Value="暂停接收"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsPaused}" Value="True">
+                                <Setter Property="Content" Value="恢复接收"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+            <Button Grid.Column="2" Content="设备" Style="{StaticResource SecondaryButtonStyle}"
+                    Margin="0,0,10,0" Click="OnManageDevicesClick"/>
+            <Button Grid.Column="3" Content="＋ 配对新手机" Style="{StaticResource PrimaryButtonStyle}"
+                    Click="OnPairNewPhoneClick"/>
         </Grid>
 
-        <TextBlock Grid.Row="1" Text="{Binding StatusLine}"
-                   Foreground="#666666" Margin="0,8,0,0" FontSize="13"/>
-
-        <Border Grid.Row="2"
-                Background="#F5F5F5"
-                BorderBrush="#DDDDDD"
-                BorderThickness="1"
-                CornerRadius="8"
-                Margin="0,12"
-                VerticalAlignment="Stretch">
+        <!-- Latest image: dominant visual area -->
+        <Border Grid.Row="1"
+                Background="{StaticResource ImageSurfaceBrush}"
+                CornerRadius="14"
+                ClipToBounds="True"
+                MouseLeftButtonDown="OnLatestImageDoubleClick">
             <Grid>
-                <TextBlock Text="尚未收到图片"
-                           Foreground="#AAAAAA"
+                <TextBlock Text="手机内容会自动出现在这里"
+                           Foreground="#B0ACA4"
+                           FontSize="15"
                            HorizontalAlignment="Center" VerticalAlignment="Center"
                            Visibility="{Binding LatestImagePath, Converter={StaticResource NullOrEmptyToVisible}}"/>
-                <Image Source="{Binding LatestImagePath}"
-                       Stretch="Uniform"
-                       Margin="8"
+                <Image x:Name="LatestImage" Source="{Binding LatestImagePath}"
+                       Stretch="Uniform" Margin="16"
                        Visibility="{Binding LatestImagePath, Converter={StaticResource NonEmptyToVisible}}"/>
             </Grid>
         </Border>
 
-        <Border Grid.Row="3" Margin="0,8,0,4"
-                Background="#FAFAFA" BorderBrush="#DDDDDD" BorderThickness="1" CornerRadius="8"
-                Padding="10,8">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="Latest" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="打开" Padding="10,4" Margin="0,0,8,0"
-                            Visibility="{Binding LatestImagePath, Converter={StaticResource NonEmptyToVisible}}"
-                            Click="OnOpenLatestClick"/>
-                    <Button Content="复制图片" Padding="10,4" Margin="0,0,8,0"
-                            Visibility="{Binding LatestImagePath, Converter={StaticResource NonEmptyToVisible}}"
-                            Click="OnCopyLatestClick"/>
-                    <Button Content="打开所在文件夹" Padding="10,4" Margin="0,0,8,0"
-                            Visibility="{Binding LatestImagePath, Converter={StaticResource NonEmptyToVisible}}"
-                            Click="OnOpenFolderClick"/>
-                </StackPanel>
-                <Button Grid.Column="2" Padding="12,4"
-                        FontWeight="SemiBold"
-                        Click="OnTogglePauseClick">
-                    <Button.Style>
-                        <Style TargetType="Button">
-                            <Setter Property="Content" Value="暂停接收"/>
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsPaused}" Value="True">
-                                    <Setter Property="Content" Value="恢复接收"/>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Style>
-                </Button>
-            </Grid>
-        </Border>
-
-        <Border Grid.Row="4" Margin="0,8,0,4"
-                Background="#FAFAFA" BorderBrush="#DDDDDD" BorderThickness="1" CornerRadius="8"
-                Padding="10,8">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Text="Paired Devices" FontWeight="SemiBold" VerticalAlignment="Center"/>
-                <TextBlock Grid.Column="1" Text="{Binding Devices.Count, StringFormat=共 {0} 台}"
-                           Foreground="#888888" VerticalAlignment="Center"/>
-            </Grid>
-        </Border>
-
-        <Grid Grid.Row="5" Margin="0,0,0,0">
+        <!-- Actions + current device summary -->
+        <Grid Grid.Row="2" Margin="0,14,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="220"/>
+                <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
+            <StackPanel Orientation="Horizontal">
+                <Button Content="复制图片" Style="{StaticResource PrimaryButtonStyle}"
+                        Margin="0,0,8,0"
+                        Visibility="{Binding LatestImagePath, Converter={StaticResource NonEmptyToVisible}}"
+                        Click="OnCopyLatestClick"/>
+                <Button Content="打开" Style="{StaticResource SecondaryButtonStyle}"
+                        Margin="0,0,8,0"
+                        Visibility="{Binding LatestImagePath, Converter={StaticResource NonEmptyToVisible}}"
+                        Click="OnOpenLatestClick"/>
+                <Button Content="文件夹" Style="{StaticResource SecondaryButtonStyle}"
+                        Visibility="{Binding LatestImagePath, Converter={StaticResource NonEmptyToVisible}}"
+                        Click="OnOpenFolderClick"/>
+            </StackPanel>
+            <Button Grid.Column="1" Style="{StaticResource GhostButtonStyle}"
+                    Padding="10,6" Click="OnManageDevicesClick">
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse Width="8" Height="8" Margin="0,0,7,0" VerticalAlignment="Center">
+                        <Ellipse.Fill>
+                            <SolidColorBrush Color="{Binding CurrentDevice.StatusColor, FallbackValue=#9CA3AF}"/>
+                        </Ellipse.Fill>
+                    </Ellipse>
+                    <TextBlock Text="{Binding CurrentDevice.DisplayName, FallbackValue=等待手机连接}"
+                               Style="{StaticResource BodyText}"
+                               FontWeight="SemiBold"/>
+                </StackPanel>
+            </Button>
+        </Grid>
 
-            <Grid Grid.Column="0" Margin="0,0,12,0">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                <TextBlock Grid.Row="0" Text="Recent" FontWeight="SemiBold" Margin="0,4,0,6"/>
-                <ListBox Grid.Row="1"
-                         ItemsSource="{Binding Recent}"
-                         BorderThickness="0"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel Orientation="Horizontal" Margin="0,3">
-                                <TextBlock Text="{Binding TimeLabel}" Foreground="#888888" Width="64"/>
-                                <TextBlock Text="{Binding FileName}" Foreground="#333333" Width="180"
-                                           TextTrimming="CharacterEllipsis"/>
-                                <TextBlock Text="{Binding StatusLabel}" Foreground="#4CAF50"/>
-                            </StackPanel>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
-            </Grid>
-
-            <Grid Grid.Column="1">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
-                <TextBlock Grid.Row="0" Text="Devices" FontWeight="SemiBold" Margin="0,4,0,6"/>
-                <ListBox Grid.Row="1"
-                         ItemsSource="{Binding Devices}"
-                         BorderThickness="0"
-                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-                    <ListBox.ItemTemplate>
-                        <DataTemplate>
-                            <StackPanel Margin="0,4">
-                                <DockPanel>
-                                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold"/>
-                                    <Ellipse Width="8" Height="8" Margin="6,0,0,0"
-                                             VerticalAlignment="Center">
-                                        <Ellipse.Fill>
-                                            <SolidColorBrush Color="{Binding StatusColor}"/>
-                                        </Ellipse.Fill>
-                                    </Ellipse>
-                                    <TextBlock Text="{Binding StatusLabel}" Foreground="#666666"
-                                               Margin="6,0,0,0" VerticalAlignment="Center"/>
-                                </DockPanel>
-                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
-                                    <TextBlock Text="{Binding Platform}" Foreground="#888888" Width="70"/>
-                                    <TextBlock Text="{Binding LastSeenLabel}" Foreground="#AAAAAA"/>
-                                </StackPanel>
-                                <Button Content="撤销信任" FontSize="11" Padding="8,2" Margin="0,4,0,0"
-                                        HorizontalAlignment="Left"
-                                        Visibility="{Binding IsTrusted, Converter={StaticResource BoolToVisible}}"
-                                        Click="OnRevokeClick"
-                                        Tag="{Binding DeviceId}"/>
-                            </StackPanel>
-                        </DataTemplate>
-                    </ListBox.ItemTemplate>
-                </ListBox>
-            </Grid>
+        <!-- Recent: horizontal filmstrip with external bottom slider -->
+        <Grid Grid.Row="3" Margin="0,16,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <TextBlock Grid.Row="0" Text="最近接收" Style="{StaticResource SectionText}" Margin="0,0,0,8"/>
+            <ListBox x:Name="RecentListBox" Grid.Row="1"
+                     ItemsSource="{Binding Recent}"
+                     SelectedItem="{Binding SelectedRecent, Mode=TwoWay}"
+                     ItemContainerStyle="{StaticResource FilmstripItemStyle}"
+                     ScrollViewer.HorizontalScrollBarVisibility="Hidden"
+                     ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                     ScrollViewer.CanContentScroll="False"
+                     Height="128"
+                     SelectionChanged="OnRecentSelectionChanged"
+                     PreviewMouseWheel="OnFilmstripPreviewMouseWheel"
+                     ScrollViewer.PanningMode="HorizontalOnly">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal"/>
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Width="132">
+                            <Border Width="116" Height="80" CornerRadius="8"
+                                    Background="#FFFFFF" BorderBrush="#E5E7EB" BorderThickness="1"
+                                    ClipToBounds="True">
+                                <Image Source="{Binding LocalFilePath}" Stretch="Uniform"/>
+                            </Border>
+                            <TextBlock Text="{Binding TimeLabel}" Style="{StaticResource SecondaryText}"
+                                       FontSize="11" HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+            <Slider x:Name="RecentPositionSlider" Grid.Row="2" Orientation="Horizontal"
+                    Style="{StaticResource FilmstripSliderStyle}"
+                    Margin="0,8,0,0"
+                    Minimum="0" Maximum="1" Value="0"
+                    Visibility="Collapsed"
+                    ValueChanged="OnFilmstripSliderValueChanged"/>
         </Grid>
     </Grid>
 </Window>

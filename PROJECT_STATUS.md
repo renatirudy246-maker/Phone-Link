@@ -1,19 +1,20 @@
 # Phone-Link Project Status
 
 ## Current Phase
-Phase 3 — Camera → PC Flow
+Phase 4A — Manual Crop Foundation
 
 ## Status
-COMPLETED (2026-08-15)
+IN PROGRESS (2026-08-15)
 
 ## Last Verified Commit
-Phase 3: `phase-3: complete camera-to-pc flow`
+Phase 3.2.2: `phase-3.2.2: fix recent strip scrolling behavior`
 
 ## Completed
 
+### Phase 0 — Bootstrap
+- [x] 仓库结构 / 解决方案 / 双端骨架 / 验证细节记录
+
 ### Phase 1 — Windows Local Receiver
-- [x] 仓库结构 / 解决方案 / 双端骨架（Phase 0）
-- [x] Desktop 启动本地 HTTPS Receiver（Kestrel，监听 0.0.0.0:8484，自签证书）
 - [x] 本机 DeviceIdentity（`desktop-<guid>`，SQLite settings 持久化）
 - [x] SQLite 持久化（transfers + settings 表，Microsoft.Data.Sqlite）
 - [x] GET /v1/health：无 token 最小响应 / 有效 token 完整身份
@@ -61,11 +62,39 @@ Phase 3: `phase-3: complete camera-to-pc flow`
 - [x] Desktop 测试：PauseTests（3）+ LatestActionsTests（7，新测试项目 PhoneLink.Desktop.Tests）
 - [x] Android JVM 单测新增：TransferManifest 3 + TransferErrorClassifier 11 + SHA-256 流式 2
 
+### Phase 3.1 — Camera & Desktop UX Polish
+- [x] 拍照 → 预览（所见即所得，Camera Preview ≈ Captured Image，EXIF orientation 管线稳定）
+- [x] 发送页交互完善：重拍 / 发送 / 上传进度 / 成功自动返回 / 失败重试或放弃
+- [x] 双击 Desktop Latest 打开图片；状态栏接收状态文案与状态点颜色
+- [x] Android 深色风格统一（相机 / 预览 / 上传 / 失败页）
+
+### Phase 3.2 — Product Shell
+- [x] Android Home Screen 三段式布局（相机入口 / 相册 / 设备状态）
+- [x] Android 设备设置底部抽屉（ModalBottomSheet，深色，显示设备信息 / 断开 / 重新配对）
+- [x] Android 导航状态机（Home / Camera 互切，Crossfade，BackHandler；发送成功 900ms 自动回 Camera）
+- [x] Windows 主界面重构：1120×760（Min 900×620），Latest + Recent Filmstrip + 操作栏 + 设备区
+- [x] App.xaml 全局样式体系（字体 / 标题 / 按钮 / Filmstrip tile / 列表）
+- [x] 设备管理窗口 + 配对窗口统一新风格；恢复「＋ 配对新手机」入口
+- [x] MainViewModel 状态：等待手机连接 / 接收中·设备名 / 已暂停接收，状态点颜色，4s 回落
+
+### Phase 3.2.1 — Filmstrip Scrolling
+- [x] Recent Filmstrip 横向滚轮滚动（悬停即可，无需 Shift）
+- [x] 点击选中后自动 ScrollIntoView
+- [x] Tile 几何统一（132 宽 / 116×80 缩略图 / 时间居中）；Android Home 蓝色圆形拍题入口
+
+### Phase 3.2.2 — Recent Strip Scrolling Behavior
+- [x] 根因修复：逻辑滚动（CanContentScroll=True）下 ScrollToHorizontalOffset 以 item 为单位的跳页问题 → 像素滚动
+- [x] 旧 ScrollBar 模板内 PART_HorizontalScrollBar Thumb 灰块残留 → 结构移除（ScrollBar → Slider）
+- [x] 底部位置控制条改为 `Slider`（Minimum=0 / Maximum=ScrollableWidth / Value=HorizontalOffset 直接 1:1）
+- [x] 数值诊断验证：最左 Value=0→Offset=0；中间 Value=952→Offset=952（50% 精确）；最右 Value=1904→Offset=1904（误差 0）
+- [x] 真实鼠标拖拽验收通过：Thumb 可完整拖到 Track 左右两端（不再卡 2/3）；滚轮联动；时间不裁切（viewport 128）；点击选中正常；无溢出时整条隐藏
+- [x] Track #E6E8EC 4px 圆角 2 全宽；Thumb #A6ACB5 46×10 圆角 5 固定宽；FlowDirection 显式 LTR
+
 ## Verification
-- Desktop build: ✅ 0 warning / 0 error
-- Desktop tests: ✅ 103/103（Core 22、Transport 28、Integration 46、Desktop.Tests 7）
-- Android unit tests: ✅ 27/27（QrPayloadCodec 6、Fingerprints 4、TransferManifest 3、TransferErrorClassifier 11、SHA-256 2）
-- Android build: ✅ assembleDebug 0 error（含 exifinterface 依赖）
+- Desktop build: ✅ 0 error
+- Desktop tests: ✅ 114/114（Core 22、Transport 28、Integration 49、Desktop.Tests 15）
+- Android unit tests: ✅ 29/29（QrPayloadCodec 6、Fingerprints 4、TransferManifest 3、TransferErrorClassifier 11、SHA-256 2、DeviceIdentity 2）
+- Android build: ✅ assembleDebug 0 error
 - 实机验收（MEIZU 21 + 真实 Wi-Fi，Phase 3）:
   - ✅ TEST A：拍照 → 预览 → 发送 → PC 自动显示（Latest 更新）
   - ✅ TEST B：方向正确——竖拍 3000×4000、横拍 4000×3000（EXIF=6/1 验证，系统自动旋转关闭状态）
@@ -88,5 +117,6 @@ Phase 3: `phase-3: complete camera-to-pc flow`
 - 手机端无日志文件（验收用临时钩子已移除，后续如需可加正式日志）
 
 ## Next Action
-- 提交 Phase 3（commit: `phase-3: complete camera-to-pc flow`）
-- Phase 3 验收完成，按 33 项报告交付
+- Phase 4A — Manual Crop Foundation：Preview 增加裁切入口，Crop 编辑器（四角/四边/移动/最小尺寸/边界约束/重置/取消/完成），Original 保留 + 恢复原图 + 重新裁切，一次 JPEG 编码，Manifest/SHA 重算，Gallery 支持，坐标映射纯 Kotlin 单测，真机验收 A–H
+- 提交：`phase-4a: add manual crop workflow`（Phase 4A 完成后）
+- Phase 4B（自动文档检测）与 OCR/错题本暂不开始

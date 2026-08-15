@@ -1,7 +1,6 @@
 package com.phonelink.app.network
 
 import com.phonelink.app.pairing.QrPayload
-import java.util.UUID
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
@@ -21,8 +20,8 @@ class PairApi(
     val port: Int,
     val fingerprint: String,
     val mobileDeviceName: String,
+    val mobileDeviceId: String,
 ) {
-    val mobileDeviceId: String = "mobile-" + UUID.randomUUID().toString().replace("-", "")
 
     fun newCallBuilder(): okhttp3.Request.Builder = Request.Builder()
 

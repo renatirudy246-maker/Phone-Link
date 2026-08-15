@@ -55,6 +55,10 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
     val deviceModel: String = android.os.Build.MODEL
 
+    /** 安装级稳定 DeviceId（首次生成后持久化，重新配对复用）。 */
+    val deviceId: String
+        get() = store.getOrCreateDeviceId()
+
     fun hasPairing(): Boolean = store.hasPairing()
 
     fun start() {
@@ -127,6 +131,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                         port = payload.port,
                         fingerprint = payload.certificateFingerprint,
                         mobileDeviceName = deviceModel,
+                        mobileDeviceId = store.getOrCreateDeviceId(),
                     )
                 }
                 val result = withContext(Dispatchers.IO) {
@@ -175,6 +180,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
                         port = port,
                         fingerprint = fingerprint,
                         mobileDeviceName = deviceModel,
+                        mobileDeviceId = store.getOrCreateDeviceId(),
                     )
                 }
                 val health = withContext(Dispatchers.IO) { api.health(token) }
