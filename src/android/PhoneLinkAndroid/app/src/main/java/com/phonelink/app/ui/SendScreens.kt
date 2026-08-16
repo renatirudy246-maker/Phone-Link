@@ -24,6 +24,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,11 +42,14 @@ import com.phonelink.app.transfer.SendUiState
 import java.io.File
 import kotlinx.coroutines.delay
 
-/** 拍照/Gallery 后的确认页：图片占主要面积，底部固定操作区。 */
+/** 拍照/Gallery 后的确认页：图片占主要面积，底部固定操作区（重拍/裁切/发送）。 */
 @Composable
 fun CapturePreviewScreen(
     previewFile: File,
+    cropped: Boolean,
     onRetake: () -> Unit,
+    onCrop: () -> Unit,
+    onRestoreOriginal: () -> Unit,
     onSend: () -> Unit,
 ) {
     val bitmap = remember(previewFile) { loadBitmap(previewFile) }
@@ -71,6 +75,17 @@ fun CapturePreviewScreen(
                     )
                 }
                 Text("预览", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                if (cropped) {
+                    Spacer(Modifier.size(8.dp))
+                    Text(
+                        "已裁切",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color(0xFF22C55E),
+                        modifier = Modifier
+                            .background(Color(0x1F22C55E), androidx.compose.foundation.shape.RoundedCornerShape(6.dp))
+                            .padding(horizontal = 8.dp, vertical = 3.dp),
+                    )
+                }
             }
 
             Box(
@@ -99,11 +114,23 @@ fun CapturePreviewScreen(
                     .padding(horizontal = 24.dp, vertical = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(
-                    formatFileSize(previewFile.length()),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Color(0xFF9AA0A6),
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        formatFileSize(previewFile.length()),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color(0xFF9AA0A6),
+                    )
+                    if (cropped) {
+                        Spacer(Modifier.size(12.dp))
+                        TextButton(onClick = onRestoreOriginal) {
+                            Text("恢复原图", color = Color(0xFF9AA0A6))
+                        }
+                    }
+                }
                 Spacer(Modifier.height(12.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -114,6 +141,11 @@ fun CapturePreviewScreen(
                         modifier = Modifier.weight(1f).height(52.dp),
                         shape = MaterialTheme.shapes.medium,
                     ) { Text("重拍", color = Color.White) }
+                    OutlinedButton(
+                        onClick = onCrop,
+                        modifier = Modifier.weight(1f).height(52.dp),
+                        shape = MaterialTheme.shapes.medium,
+                    ) { Text(if (cropped) "重新裁切" else "裁切", color = Color.White) }
                     Button(
                         onClick = onSend,
                         modifier = Modifier.weight(1.4f).height(52.dp),

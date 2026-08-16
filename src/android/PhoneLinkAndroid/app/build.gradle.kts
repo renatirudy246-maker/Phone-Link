@@ -26,6 +26,13 @@ android {
         }
     }
 
+    // OpenCV：仅打包真机常用 ABI（arm64-v8a + armeabi-v7a），显著减小 APK
+    defaultConfig {
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -37,6 +44,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -64,6 +72,9 @@ dependencies {
 
     // Phase 3: EXIF orientation normalization
     implementation("androidx.exifinterface:exifinterface:1.3.7")
+
+    // Phase 4B: local document scanning (OpenCV native, no cloud; AAR vendored in app/libs)
+    implementation(files("libs/opencv-4.10.0.aar"))
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")

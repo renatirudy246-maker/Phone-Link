@@ -32,3 +32,11 @@ PhoneLink/logs/
 # Android Kotlin build cache
 .kotlin/
 
+# Python / Scan PoC local data & models (do not commit test photos or models)
+__pycache__/
+*.py[cod]
+tools/scanpoc/real-input/
+tools/scanpoc/out/
+tools/scanpoc/*.tflite
+tools/scanpoc/models/
+tools/scanpoc/results/
