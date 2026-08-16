@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Monochrome: flow mark as single-color path, scaled to adaptive safe zone -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+        android:width="108dp"
+        android:height="108dp"
+        android:viewportWidth="1024"
+        android:viewportHeight="1024">
+    <group
+        android:scaleX="0.9"
+        android:scaleY="0.9"
+        android:pivotX="512"
+        android:pivotY="512">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData=" M384 194 C347 194 317 224 317 261 V633 C317 674 333 705 363 729 L460 807 C490 831 534 826 558 796 C582 766 577 722 547 698 L472 637 C458 626 449 609 449 591 V265 C449 226 417 194 378 194 Z"/>
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData=" M640 830 C677 830 707 800 707 763 V391 C707 350 691 319 661 295 L564 217 C534 193 490 198 466 228 C442 258 447 302 477 326 L552 387 C566 398 575 415 575 433 V759 C575 798 607 830 646 830 Z"/>
+    </group>
+</vector>

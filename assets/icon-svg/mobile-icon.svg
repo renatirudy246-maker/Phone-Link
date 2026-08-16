@@ -1,0 +1,106 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024"
+     fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <defs>
+    <!-- Full-bleed mobile background -->
+    <linearGradient id="mobileBg"
+                    x1="100" y1="60"
+                    x2="900" y2="960"
+                    gradientUnits="userSpaceOnUse">
+      <stop stop-color="#191424"/>
+      <stop offset="0.55" stop-color="#100B18"/>
+      <stop offset="1" stop-color="#08060D"/>
+    </linearGradient>
+
+    <!-- Mobile brand: violet -> purple -->
+    <linearGradient id="mobileFlowA"
+                    x1="350" y1="175"
+                    x2="570" y2="830"
+                    gradientUnits="userSpaceOnUse">
+      <stop stop-color="#AC7CFF"/>
+      <stop offset="0.48" stop-color="#8568FF"/>
+      <stop offset="1" stop-color="#685CFF"/>
+    </linearGradient>
+
+    <linearGradient id="mobileFlowB"
+                    x1="680" y1="840"
+                    x2="465" y2="180"
+                    gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D06EFF"/>
+      <stop offset="0.5" stop-color="#9C68FF"/>
+      <stop offset="1" stop-color="#7567FF"/>
+    </linearGradient>
+
+    <radialGradient id="mobileGlow"
+                    cx="0" cy="0" r="1"
+                    gradientUnits="userSpaceOnUse"
+                    gradientTransform="translate(512 510) rotate(90) scale(420)">
+      <stop stop-color="#8B54FF" stop-opacity="0.17"/>
+      <stop offset="1" stop-color="#8B54FF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- FULL BLEED BACKGROUND -->
+  <rect x="0" y="0"
+        width="1024" height="1024"
+        rx="225"
+        fill="url(#mobileBg)"/>
+
+  <circle cx="512"
+          cy="510"
+          r="420"
+          fill="url(#mobileGlow)"/>
+
+  <!-- LEFT / DOWN FLOW -->
+  <path d="
+    M384 194
+    C347 194 317 224 317 261
+
+    V633
+
+    C317 674 333 705 363 729
+
+    L460 807
+
+    C490 831 534 826 558 796
+
+    C582 766 577 722 547 698
+
+    L472 637
+
+    C458 626 449 609 449 591
+
+    V265
+
+    C449 226 417 194 378 194
+
+    Z"
+    fill="url(#mobileFlowA)"/>
+
+  <!-- RIGHT / UP FLOW -->
+  <path d="
+    M640 830
+    C677 830 707 800 707 763
+
+    V391
+
+    C707 350 691 319 661 295
+
+    L564 217
+
+    C534 193 490 198 466 228
+
+    C442 258 447 302 477 326
+
+    L552 387
+
+    C566 398 575 415 575 433
+
+    V759
+
+    C575 798 607 830 646 830
+
+    Z"
+    fill="url(#mobileFlowB)"/>
+
+</svg>

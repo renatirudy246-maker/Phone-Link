@@ -1,0 +1,106 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024"
+     fill="none" xmlns="http://www.w3.org/2000/svg">
+
+  <defs>
+    <!-- Full-bleed desktop background -->
+    <linearGradient id="desktopBg"
+                    x1="100" y1="60"
+                    x2="900" y2="960"
+                    gradientUnits="userSpaceOnUse">
+      <stop stop-color="#111A25"/>
+      <stop offset="0.55" stop-color="#0A1019"/>
+      <stop offset="1" stop-color="#05080D"/>
+    </linearGradient>
+
+    <!-- Desktop brand: cyan -> blue -->
+    <linearGradient id="desktopFlowA"
+                    x1="190" y1="350"
+                    x2="820" y2="520"
+                    gradientUnits="userSpaceOnUse">
+      <stop stop-color="#62D6FF"/>
+      <stop offset="0.48" stop-color="#4B9BFF"/>
+      <stop offset="1" stop-color="#5267FF"/>
+    </linearGradient>
+
+    <linearGradient id="desktopFlowB"
+                    x1="830" y1="680"
+                    x2="190" y2="500"
+                    gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6171FF"/>
+      <stop offset="0.48" stop-color="#4E8FFF"/>
+      <stop offset="1" stop-color="#5FD8FF"/>
+    </linearGradient>
+
+    <!-- Very restrained ambient light -->
+    <radialGradient id="desktopGlow"
+                    cx="0" cy="0" r="1"
+                    gradientUnits="userSpaceOnUse"
+                    gradientTransform="translate(512 510) rotate(90) scale(420)">
+      <stop stop-color="#278DFF" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#278DFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- FULL BLEED BACKGROUND -->
+  <rect x="0" y="0"
+        width="1024" height="1024"
+        rx="225"
+        fill="url(#desktopBg)"/>
+
+  <circle cx="512" cy="510"
+          r="420"
+          fill="url(#desktopGlow)"/>
+
+  <!-- TOP / RIGHT FLOW -->
+  <path d="
+    M205 386
+    C205 349 235 319 272 319
+
+    H644
+
+    C685 319 716 335 740 365
+
+    L818 462
+
+    C842 492 837 536 807 560
+
+    C777 584 733 579 709 549
+
+    L648 474
+
+    C637 460 620 451 602 451
+
+    H276
+
+    C237 451 205 419 205 380
+
+    Z"
+    fill="url(#desktopFlowA)"/>
+
+  <!-- BOTTOM / LEFT FLOW -->
+  <path d="
+    M819 638
+    C819 675 789 705 752 705
+
+    H380
+
+    C339 705 308 689 284 659
+
+    L206 562
+
+    C182 532 187 488 217 464
+
+    C247 440 291 445 315 475
+
+    L376 550
+
+    C387 564 404 573 422 573
+
+    H748
+
+    C787 573 819 605 819 644
+
+    Z"
+    fill="url(#desktopFlowB)"/>
+
+</svg>

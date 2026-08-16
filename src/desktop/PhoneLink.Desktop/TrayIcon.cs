@@ -85,6 +85,13 @@ public sealed class TrayIcon : IDisposable
 
     private static Icon CreateIcon()
     {
+        var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "app.ico");
+        if (File.Exists(iconPath))
+        {
+            return new Icon(iconPath, 16, 16);
+        }
+
+        // Fallback: 图标资源缺失时使用最小绿点，保证托盘不空白。
         using var bitmap = new Bitmap(16, 16);
         using (var g = Graphics.FromImage(bitmap))
         {
