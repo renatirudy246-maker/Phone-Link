@@ -23,7 +23,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 REASONS = ("USER_CORRECTED", "LOW_CONFIDENCE", "MODEL_NOT_FOUND", "CLEAN_SUCCESS")
-CORNERS = ("tl", "tr", "br", "bl")
+CORNERS = ("TL", "TR", "BR", "BL")
 
 
 def default_dataset_root() -> Path:
@@ -105,7 +105,7 @@ def main() -> int:
         if correction.get("predictionMissing"):
             prediction_missing += 1
         for corner in correction.get("adjustedCorners", []):
-            corners[corner] += 1
+            corners[str(corner).upper()] += 1
 
     if args.json:
         print(json.dumps({
