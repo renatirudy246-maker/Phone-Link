@@ -5,7 +5,7 @@
         xmlns:d="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="设备管理 - Phone-Link"
-        Icon="/Assets/app.ico"
+        Icon="pack://siteoforigin:,,,/Assets/app.ico"
         FontFamily="{StaticResource AppFont}"
         Width="640" Height="520"
         WindowStartupLocation="CenterOwner">

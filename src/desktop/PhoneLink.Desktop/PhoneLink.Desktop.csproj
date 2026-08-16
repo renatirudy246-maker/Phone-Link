@@ -25,7 +25,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Resource Include="Assets\app.ico" />
     <None Include="Assets\app.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
