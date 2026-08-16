@@ -7,7 +7,7 @@ Phase 4B — Offline Document Scanner & Correction Feedback
 COMPLETE (2026-08-16) — Phase 4B Final Closeout：真机回归全绿，已封为稳定基线（Core v1 Baseline）
 
 ## Last Verified Commit
-`feat(scanner): add Phase 4B-D2 local user correction dataset`
+`feat(icons): official app icons for desktop and Android + 1.0.0 formal release polish`（main @ e385bbd，Phase 4B 已并入 main）
 
 ## Completed
 
