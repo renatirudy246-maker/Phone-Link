@@ -1,10 +1,10 @@
 # Phone-Link Project Status
 
 ## Current Phase
-Phase 4B-D2 — Local User Correction Dataset
+Phase 4B — Offline Document Scanner & Correction Feedback
 
 ## Status
-DONE (2026-08-16)
+COMPLETE (2026-08-16) — Phase 4B Final Closeout：真机回归全绿，已封为稳定基线（Core v1 Baseline）
 
 ## Last Verified Commit
 `feat(scanner): add Phase 4B-D2 local user correction dataset`
@@ -108,6 +108,11 @@ DONE (2026-08-16)
 - Desktop tests: ✅ 133/133（Core 33、Transport 28、Integration 57、Desktop.Tests 15）
 - Android unit tests: ✅ 120/120（原 100 + Phase 4B-D2 新增 20）
 - Android build: ✅ assembleDebug 0 error
+- Phase 4B 最终真机回归（MEIZU 21，2026-08-16）:
+  - ✅ FLOW A — 普通 Wi-Fi：拍照 → DocQuadNet 检测 → 四角微调 → Perspective → 原图/增强/灰度/黑白 → Send → Windows Latest/Recent 正常
+  - ✅ FLOW B — 手机热点：MEIZU 21 开热点 → Windows 连接 → 未重新配对 → Endpoint Recovery + TLS 指纹验证 → Send → Windows 收到
+  - ✅ FLOW C — Correction Dataset：自动框不准 → 手动调整 → 下一步 → 正常发送 → PC scanner-feedback 落地 source.jpg + metadata.json → audit problems = 0
+  - ✅ FLOW D — Feedback OFF：关闭开关 → 扫描发送 → 普通图片正常收到 → scanner-feedback 不增加
 - 实机验收（MEIZU 21 + 真实 Wi-Fi，Phase 3）:
   - ✅ TEST A：拍照 → 预览 → 发送 → PC 自动显示（Latest 更新）
   - ✅ TEST B：方向正确——竖拍 3000×4000、横拍 4000×3000（EXIF=6/1 验证，系统自动旋转关闭状态）
@@ -127,8 +132,9 @@ DONE (2026-08-16)
 - Flyme/部分厂商 ROM 限制 adb install：实机安装需 push APK 后从文件管理器手动安装
 - Flyme 系统日志优化：Log.d 不输出到 logcat（不影响功能，调试用文件日志替代）
 - 手机端无日志文件（验收用临时钩子已移除，后续如需可加正式日志）
-- Phase 4B-D2 实机验收待执行（手机端开启开关 → 扫描并手动调整边缘 → 确认 → PC 端 scanner-feedback 目录出现样本包；数据集审计脚本 tools/scanner-feedback/audit_feedback_dataset.py）
+- 非阻塞事项（Phase 4B 封版明确记录）:
+  - Scanner 后续优化（检测精度/速度）不是当前 blocker，作为下一阶段备选
+  - Feedback Dataset 已开始积累真实使用数据（当前 1 样本），模型 Fine-tuning 尚未开始；建议积累 100+ 有价值纠错样本后再评估 Phase 4B-D3（Feedback Analysis / Fine-tuning Research），不因少量样本就训练模型
 
 ## Next Action
-- Phase 4B-D2 实机验收（上述 Known Issues 条目）
-- Phase 4B（自动文档检测后续）/ 多页批量扫描 / OCR 暂不开始
+- Phase 5A — AI Vision MVP（等待本 Closeout 完成后启动）：Windows 收到题目图片后一键「问 AI」（解题/翻译/解释），AI 读取图片并在 Phone-Link 内显示回答；第一版仅手动触发，不默认自动发送每张照片给 AI
