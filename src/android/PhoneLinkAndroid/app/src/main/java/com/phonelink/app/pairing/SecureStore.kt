@@ -54,6 +54,13 @@ class SecureStore(context: Context) {
         return com.phonelink.app.discovery.PairedDesktop(deviceId, fingerprint, token, desktopName)
     }
 
+    /** 是否开启"保存扫描纠错样本"（非敏感设置，明文保存；默认关闭，绝不静默收集）。 */
+    fun isFeedbackEnabled(): Boolean = prefs.getBoolean(KEY_FEEDBACK_ENABLED, false)
+
+    fun setFeedbackEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_FEEDBACK_ENABLED, enabled).apply()
+    }
+
     /** 端点（host/port）非敏感，明文保存用于 NSD 失败时回退。 */
     fun saveEndpoint(host: String, port: Int) {
         prefs.edit().putString(KEY_ENDPOINT_HOST, host).putInt(KEY_ENDPOINT_PORT, port).apply()
@@ -155,6 +162,7 @@ class SecureStore(context: Context) {
         private const val KEY_FINGERPRINT = "certificate_fingerprint"
         private const val KEY_ENDPOINT_HOST = "endpoint_host"
         private const val KEY_ENDPOINT_PORT = "endpoint_port"
+        private const val KEY_FEEDBACK_ENABLED = "feedback_enabled"
         private const val KEY_DEVICE_ID = "device_id"
         private const val ANDROID_KEYSTORE = "AndroidKeyStore"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"

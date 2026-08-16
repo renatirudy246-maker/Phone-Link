@@ -20,6 +20,8 @@ import com.phonelink.app.scanner.PerspectiveTransformer
 import com.phonelink.app.scanner.Quadrilateral
 import com.phonelink.app.scanner.QuadrilateralMath
 import com.phonelink.app.scanner.DetectionStatus
+import com.phonelink.app.scanner.feedback.FeedbackHeatmap
+import com.phonelink.app.scanner.feedback.ScannerFeedbackCollector
 import java.io.File
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -58,6 +60,19 @@ class TransferViewModel(app: Application) : AndroidViewModel(app) {
 
     private val store = SecureStore(app)
     private val tempDir = File(app.cacheDir, "transfers")
+
+    /** 本地扫描反馈采集器：进入调整边缘时记录预测，确认四边形后 best effort 采集（默认 OFF）。 */
+    private val feedbackCollector = ScannerFeedbackCollector(
+        pendingDir = File(app.cacheDir, "scanner_feedback"),
+        enabled = { feedbackEnabled },
+    )
+
+    /** 最近一次检测结果（用于反馈采集：模型预测 / 置信度 / 质量门）。 */
+    private var detectionResult: DocumentDetectionResult? = null
+
+    /** 设置开关："保存扫描纠错样本"（默认 OFF，用户手动开启，绝不静默收集）。 */
+    var feedbackEnabled by mutableStateOf(store.isFeedbackEnabled())
+        private set
 
     /** 原始图片（方向归一化后），整个编辑流程保留，供重新扫描/调整/恢复。 */
     private var prepared: ImagePreparer.PreparedImage? = null
@@ -100,6 +115,14 @@ class TransferViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         cleanupStaleTempFiles()
+        retryPendingFeedbackAfterStartup()
+    }
+
+    /** 设置开关（持久化；关闭时取消未确认的采集 Session）。 */
+    fun updateFeedbackEnabled(enabled: Boolean) {
+        feedbackEnabled = enabled
+        store.setFeedbackEnabled(enabled)
+        if (!enabled) feedbackCollector.cancelSession()
     }
 
     val desktopName: String
@@ -213,8 +236,60 @@ class TransferViewModel(app: Application) : AndroidViewModel(app) {
                 is DocumentDetectionResult.LowConfidence -> result.quad
                 is DocumentDetectionResult.NotFound -> result.defaultQuad
             }
+            detectionResult = result
             sendState = SendUiState.AdjustingEdges(original.file, quad, status)
+            beginFeedbackSession()
         }
+    }
+
+    /** 进入调整边缘页：记录 Initial Prediction（模型看到的同一张 prepared 原图）。 */
+    private fun beginFeedbackSession() {
+        val original = prepared ?: return
+        val result = detectionResult ?: return
+        feedbackCollector.beginSession(
+            sourceFile = original.file,
+            sourceWidth = original.width,
+            sourceHeight = original.height,
+            sourceSha256 = original.sha256,
+            status = when (result) {
+                is DocumentDetectionResult.Detected -> DetectionStatus.DETECTED
+                is DocumentDetectionResult.LowConfidence -> DetectionStatus.LOW_CONFIDENCE
+                is DocumentDetectionResult.NotFound -> DetectionStatus.NOT_FOUND
+            },
+            confidence = when (result) {
+                is DocumentDetectionResult.Detected -> result.confidence
+                is DocumentDetectionResult.LowConfidence -> result.confidence
+                is DocumentDetectionResult.NotFound -> null
+            },
+            qualityReason = when (result) {
+                is DocumentDetectionResult.Detected -> result.qualityReason
+                is DocumentDetectionResult.LowConfidence -> result.qualityReason
+                is DocumentDetectionResult.NotFound -> result.reason
+            },
+            maskAreaRatio = when (result) {
+                is DocumentDetectionResult.Detected -> result.maskStats.foregroundRatio
+                is DocumentDetectionResult.LowConfidence -> result.maskStats.foregroundRatio
+                is DocumentDetectionResult.NotFound -> null
+            },
+            heatmap = when (result) {
+                is DocumentDetectionResult.Detected -> FeedbackHeatmap(
+                    result.heatmapStats.peakSigma,
+                    result.heatmapStats.peakMargin,
+                    result.heatmapStats.peakValues.toList(),
+                )
+                is DocumentDetectionResult.LowConfidence -> FeedbackHeatmap(
+                    result.heatmapStats.peakSigma,
+                    result.heatmapStats.peakMargin,
+                    result.heatmapStats.peakValues.toList(),
+                )
+                is DocumentDetectionResult.NotFound -> null
+            },
+            predictedQuad = when (result) {
+                is DocumentDetectionResult.Detected -> result.quad
+                is DocumentDetectionResult.LowConfidence -> result.quad
+                is DocumentDetectionResult.NotFound -> null
+            },
+        )
     }
 
     /** 确认四角：透视校正 → base → 进入扫描预览（一次 warp，基于原图）。 */
@@ -225,6 +300,7 @@ class TransferViewModel(app: Application) : AndroidViewModel(app) {
         val valid = QuadrilateralMath.isValid(quad)
         sendState = SendUiState.Preparing("正在扫描…")
         viewModelScope.launch {
+            feedbackCollector.confirmCorrection(feedbackCollector.activeSession, quad)
             val result = withContext(Dispatchers.Default) {
                 try {
                     val bitmap = android.graphics.BitmapFactory.decodeFile(original.file.absolutePath)
@@ -264,6 +340,7 @@ class TransferViewModel(app: Application) : AndroidViewModel(app) {
         val original = prepared ?: return
         val id = transferId ?: return
         if (sending) return
+        feedbackCollector.cancelSession()
         scanBase?.file?.delete()
         scanBase = null
         scanQuad = null
@@ -283,6 +360,7 @@ class TransferViewModel(app: Application) : AndroidViewModel(app) {
         val original = prepared ?: return
         if (sending) return
         sendState = SendUiState.AdjustingEdges(original.file, scanQuad ?: Quadrilateral.DEFAULT, DetectionStatus.DETECTED)
+        beginFeedbackSession()
     }
 
     /** 切换增强（非破坏）：始终从 perspective base（或原图）重新生成，优先使用缓存。 */
@@ -546,6 +624,7 @@ class TransferViewModel(app: Application) : AndroidViewModel(app) {
     private fun onCompleted() {
         sending = false
         clearPrepared()
+        uploadPendingFeedback()
         sendState = SendUiState.Completed(desktopName)
     }
 
@@ -570,6 +649,8 @@ class TransferViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun clearPrepared() {
+        feedbackCollector.cancelSession()
+        detectionResult = null
         prepared?.file?.delete()
         scanBase?.file?.delete()
         working?.file?.takeIf { it != prepared?.file && it != scanBase?.file }?.delete()
@@ -595,6 +676,41 @@ class TransferViewModel(app: Application) : AndroidViewModel(app) {
         try {
             tempDir.listFiles()?.forEach { it.delete() }
         } catch (_: Exception) {
+        }
+    }
+
+    /**
+     * 反馈补传（best effort，绝不影响主流程）：
+     * 主发送成功后或 App 启动后（已配对时）尝试上传 pending 样本；
+     * 失败静默保留 pending，等待下次成功连接重试。
+     */
+    private fun retryPendingFeedbackAfterStartup() {
+        if (store.readPairedDesktop() == null) return
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(2000)
+            uploadPendingFeedback()
+        }
+    }
+
+    private fun uploadPendingFeedback() {
+        if (!feedbackEnabled) return
+        val paired = store.readPairedDesktop() ?: return
+        viewModelScope.launch {
+            try {
+                val endpoint = withContext(Dispatchers.IO) {
+                    endpointResolver.resolve(paired, store.readEndpointCache())
+                } ?: return@launch
+                withContext(Dispatchers.IO) {
+                    feedbackCollector.uploadPending(
+                        host = endpoint.host,
+                        port = endpoint.port,
+                        fingerprint = paired.certificateFingerprint,
+                        token = paired.deviceToken,
+                    )
+                }
+            } catch (t: Throwable) {
+                Log.d(TAG, "ScannerFeedback: upload attempt skipped: ${t.message}")
+            }
         }
     }
 

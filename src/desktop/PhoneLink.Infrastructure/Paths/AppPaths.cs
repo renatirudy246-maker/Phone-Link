@@ -11,6 +11,7 @@ public sealed class AppPaths
     public string ThumbnailsDir { get; }
     public string LogsDir { get; }
     public string TempDir { get; }
+    public string ScannerFeedbackDir { get; }
 
     public string DbPath => Path.Combine(DataDir, "phonelink.db");
     public string DevTokenPath => Path.Combine(DataDir, "dev-token.txt");
@@ -26,6 +27,7 @@ public sealed class AppPaths
         ThumbnailsDir = Path.Combine(BaseDir, "thumbnails");
         LogsDir = Path.Combine(BaseDir, "logs");
         TempDir = Path.Combine(BaseDir, "temp");
+        ScannerFeedbackDir = Path.Combine(BaseDir, "scanner-feedback");
         EnsureCreated();
     }
 
@@ -36,5 +38,6 @@ public sealed class AppPaths
         Directory.CreateDirectory(ThumbnailsDir);
         Directory.CreateDirectory(LogsDir);
         Directory.CreateDirectory(TempDir);
+        Directory.CreateDirectory(ScannerFeedbackDir);
     }
 }

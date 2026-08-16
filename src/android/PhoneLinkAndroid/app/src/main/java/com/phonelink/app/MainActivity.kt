@@ -220,6 +220,8 @@ private fun PairedContent(
                         onGalleryPicked = { vm.onGalleryPicked(it) },
                         onUnpair = onUnpair,
                         onReconnect = onReconnect,
+                        feedbackEnabled = vm.feedbackEnabled,
+                        onFeedbackEnabledChange = { vm.updateFeedbackEnabled(it) },
                     )
                     AppScreen.Camera -> CameraPage(
                         vm = vm,

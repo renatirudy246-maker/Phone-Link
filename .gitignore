@@ -44,3 +44,10 @@ tools/scanpoc/results/
 
 # Local tools cache
 .codegraph/
+
+# Scanner feedback dataset (Phase 4B-D2): real photos must never be committed
+tools/scanner-feedback/out/
+tools/scanner-feedback/real-input/
+tools/scanner-feedback/training-photos/
+tools/scanner-feedback/*.jpg
+tools/scanner-feedback/*.png

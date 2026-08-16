@@ -1,13 +1,13 @@
 # Phone-Link Project Status
 
 ## Current Phase
-Phase 4A — Manual Crop Foundation
+Phase 4B-D2 — Local User Correction Dataset
 
 ## Status
-IN PROGRESS (2026-08-15)
+DONE (2026-08-16)
 
 ## Last Verified Commit
-Phase 3.2.2: `phase-3.2.2: fix recent strip scrolling behavior`
+`feat(scanner): add Phase 4B-D2 local user correction dataset`
 
 ## Completed
 
@@ -90,10 +90,23 @@ Phase 3.2.2: `phase-3.2.2: fix recent strip scrolling behavior`
 - [x] 真实鼠标拖拽验收通过：Thumb 可完整拖到 Track 左右两端（不再卡 2/3）；滚轮联动；时间不裁切（viewport 128）；点击选中正常；无溢出时整条隐藏
 - [x] Track #E6E8EC 4px 圆角 2 全宽；Thumb #A6ACB5 46×10 圆角 5 固定宽；FlowDirection 显式 LTR
 
+### Phase 4B-D2 — Local User Correction Dataset (2026-08-16)
+- [x] 采集纯 Kotlin 层（`scanner/feedback/`）：ScannerFeedbackConfig（阈值/采样率/队列上限集中）、ScannerFeedbackMetadata（Schema V1 JSON）、ScannerFeedbackMath（归一化 delta / 确定性 5% 采样）、ScannerFeedbackDecision（A/B/C/D/F 规则）、FeedbackQueuePolicy（淘汰优先级）、ScannerFeedbackCollector（session/confirm/pending/上传）
+- [x] 生命周期：进入 AdjustingEdges 每次创建 Session（记录 Initial Prediction）；仅「下一步」确认才采样；返回/取消/使用整张图片不采集；开关默认 OFF（SecureStore 持久化）
+- [x] 决策规则：NOT_FOUND→MODEL_NOT_FOUND（predictedQuad=null）；LOW_CONFIDENCE 总是采集；DETECTED+maxDelta≥0.003→USER_CORRECTED；DETECTED+无调整→hash(sampleId)%100<5 采样 CLEAN_SUCCESS
+- [x] 上传：POST /api/v1/scanner-feedback multipart（metadata 先于 file），复用 EndpointResolver + TLS 指纹钉扎 + Device Token，best effort 不阻塞主发送，成功 ACK 后删本地包
+- [x] Windows 落盘：`%LOCALAPPDATA%\PhoneLink\scanner-feedback\yyyy-MM\<sampleId>\{source.jpg, metadata.json}`，tmp 写入 → SHA-256/25MB/JPEG 头校验 → 原子 rename；sampleId 幂等（重复返回 already_stored 不重复落盘）
+- [x] 队列上限 100 样本 / 500MB；淘汰优先级 CLEAN_SUCCESS < LOW_CONFIDENCE < USER_CORRECTED < MODEL_NOT_FOUND，同级删最旧
+- [x] Android 设置 UI：Home 设备抽屉「保存扫描纠错样本」Switch（默认关闭，说明文案：仅保存在已配对电脑、不上传云端）
+- [x] Desktop：ScannerFeedbackMetadata Parser（严格 Schema V1 校验）+ IScannerFeedbackService + ScannerFeedbackService + ErrorCodes（FEEDBACK_INVALID/TOO_LARGE/HASH_MISMATCH）+ DI 接线
+- [x] 工具：tools/scanner-feedback/audit_feedback_dataset.py（stdlib 审计：总数/reason 分布/delta 统计/角调整次数/损坏/重复 SHA）+ generate_feedback_contact_sheet.py（Pillow 联系表：原图 + 预测红框 + 修正绿框）
+- [x] 测试：Android JVM 新增 20（数学 6 + 决策 5 + collector 4 + 队列策略 2 + …，共 120）；Desktop 新增 19（parser 11 + 集成 8，共 133）
+- [x] 隐私：样本 = detector 真实输入 prepared 原图（warp 之前）；prepared JPEG 无 EXIF（Bitmap.compress 重编码）；不存 GPS/序列号等；数据不上云、不第三方、不训练
+
 ## Verification
 - Desktop build: ✅ 0 error
-- Desktop tests: ✅ 114/114（Core 22、Transport 28、Integration 49、Desktop.Tests 15）
-- Android unit tests: ✅ 29/29（QrPayloadCodec 6、Fingerprints 4、TransferManifest 3、TransferErrorClassifier 11、SHA-256 2、DeviceIdentity 2）
+- Desktop tests: ✅ 133/133（Core 33、Transport 28、Integration 57、Desktop.Tests 15）
+- Android unit tests: ✅ 120/120（原 100 + Phase 4B-D2 新增 20）
 - Android build: ✅ assembleDebug 0 error
 - 实机验收（MEIZU 21 + 真实 Wi-Fi，Phase 3）:
   - ✅ TEST A：拍照 → 预览 → 发送 → PC 自动显示（Latest 更新）
@@ -110,13 +123,12 @@ Phase 3.2.2: `phase-3.2.2: fix recent strip scrolling behavior`
   - ✅ 目标 2MB < 2s 达成（实测约 0.27s，含上传）
 
 ## Known Issues
-- `dev-token.txt` 遗留文件（Phase 2 起不生成、不鉴权，仅兼容旧客户端读取，可手动删除）
 - Windows 防火墙：首次监听局域网端口可能弹出允许提示，需用户允许（文档已说明）
 - Flyme/部分厂商 ROM 限制 adb install：实机安装需 push APK 后从文件管理器手动安装
 - Flyme 系统日志优化：Log.d 不输出到 logcat（不影响功能，调试用文件日志替代）
 - 手机端无日志文件（验收用临时钩子已移除，后续如需可加正式日志）
+- Phase 4B-D2 实机验收待执行（手机端开启开关 → 扫描并手动调整边缘 → 确认 → PC 端 scanner-feedback 目录出现样本包；数据集审计脚本 tools/scanner-feedback/audit_feedback_dataset.py）
 
 ## Next Action
-- Phase 4A — Manual Crop Foundation：Preview 增加裁切入口，Crop 编辑器（四角/四边/移动/最小尺寸/边界约束/重置/取消/完成），Original 保留 + 恢复原图 + 重新裁切，一次 JPEG 编码，Manifest/SHA 重算，Gallery 支持，坐标映射纯 Kotlin 单测，真机验收 A–H
-- 提交：`phase-4a: add manual crop workflow`（Phase 4A 完成后）
-- Phase 4B（自动文档检测）与 OCR/错题本暂不开始
+- Phase 4B-D2 实机验收（上述 Known Issues 条目）
+- Phase 4B（自动文档检测后续）/ 多页批量扫描 / OCR 暂不开始

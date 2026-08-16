@@ -232,8 +232,8 @@ phone-link/
 5. **Scan Result Screen V2 Layout**: The 4-layer fixed structure (`Top Bar -> PreviewContainer -> Segmented Control -> File Size -> Bottom Actions`) is finalized.
 
 ### 📌 Recommended Next Phases for DeepSeek
-1. **User Correction Data Collection (Phase 4B-D2)**:
-   - When a user adjusts corner handles in `AdjustingEdgesScreen`, save the user-corrected quad alongside the original photo into a local feedback dataset for future fine-tuning.
+1. ~~**User Correction Data Collection (Phase 4B-D2)**~~ — ✅ **DONE (2026-08-16, commit `feat(scanner): add Phase 4B-D2 local user correction dataset`)**:
+   - 采集管线全链路已落地：Android `scanner/feedback/` 纯 Kotlin 采集层（Config/Metadata/Math/Decision/QueuePolicy/Collector）+ `TransferViewModel` 集成（每次进入 AdjustingEdges 创建 Session，仅「下一步」确认采样）+ 设置开关（默认 OFF）+ JVM 单测；Desktop `POST /api/v1/scanner-feedback` 幂等落盘（`%LOCALAPPDATA%\PhoneLink\scanner-feedback\yyyy-MM\<sampleId>\{source.jpg, metadata.json}`，tmp 原子 rename + SHA/JPEG 头/大小校验）+ 集成测试；`tools/scanner-feedback/` 数据集审计与联系表脚本。不做训练/上传云端。
 2. **Multi-page Batch Scanning**:
    - Allow continuous capture of multiple pages before sending, and assemble into a single multi-page PDF on the desktop side.
 3. **Desktop OCR & Searchable PDF Integration**:
