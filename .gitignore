@@ -54,3 +54,6 @@ tools/scanner-feedback/*.png
 
 # Android signing (never commit)
 *.jks
+
+# Release artifacts (never commit binaries)
+artifacts/

@@ -127,6 +127,13 @@ COMPLETE (2026-08-16) — Phase 4B Final Closeout：真机回归全绿，已封�
   - ✅ 服务端处理 434KB 请求 118ms / 上传事务 60ms
   - ✅ 目标 2MB < 2s 达成（实测约 0.27s，含上传）
 
+### Release Acceptance — Phone-Link Core v1.0.0
+- ✅ RELEASE ACCEPTANCE PASSED (2026-08-16)
+- ✅ Desktop tests 133/133；Android unit tests 120/120
+- ✅ Android Release 正式签名真机验收 R1–R13 ALL PASS（MEIZU 21：配对 / 拍照 / DocQuadNet / 四角微调 / Perspective / 原图增强灰度黑白 / Wi-Fi 发送 / Latest·Recent / 热点 Endpoint Recovery / 纠错数据 ON·OFF / 双端重启 / 无 Debug UI 泄漏）
+- ✅ Windows Release 启动验证：HTTPS 8484 + UDP 8485 + mDNS + 正式图标 + 托盘，无资源 IOException
+- ✅ 制品：Phone-Link-Windows-v1.0.0-x64.zip + Phone-Link-Android-v1.0.0.apk（signer SHA-256 d9a62fa5…），SHA256SUMS 校验一致
+
 ## Known Issues
 - Windows 防火墙：首次监听局域网端口可能弹出允许提示，需用户允许（文档已说明）
 - Flyme/部分厂商 ROM 限制 adb install：实机安装需 push APK 后从文件管理器手动安装
