@@ -41,3 +41,6 @@ tools/scanpoc/negatives/
 tools/scanpoc/*.tflite
 tools/scanpoc/models/
 tools/scanpoc/results/
+
+# Local tools cache
+.codegraph/
