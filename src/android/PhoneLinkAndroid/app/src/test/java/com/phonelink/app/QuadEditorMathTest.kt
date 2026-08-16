@@ -173,4 +173,36 @@ class QuadEditorMathTest {
             prev = cur
         }
     }
+
+    @Test
+    fun gestureSafeInsets_editorViewportMapsEdgesCorrectly() {
+        // 模拟物理屏幕 1080x2400，安全边距左右各 48px，有效编辑器视口 984x2000
+        // 原始图片 3000x4000 (3:4 竖图)
+        val fit = com.phonelink.app.crop.CropMath.fitRect(984f, 2000f, 3000f, 4000f)
+        val safeRect = ImageRectF(fit.left, fit.top, fit.right, fit.bottom)
+
+        // 1. 指针在图片左边界 (safeRect.left) -> 归一化 X == 0.0f
+        val leftNorm = QuadEditorMath.pointerToNormalized(PointF(safeRect.left, safeRect.top + 200f), safeRect)
+        assertEquals(0.0f, leftNorm.x, eps)
+
+        // 2. 指针在图片右边界 (safeRect.right) -> 归一化 X == 1.0f
+        val rightNorm = QuadEditorMath.pointerToNormalized(PointF(safeRect.right, safeRect.top + 200f), safeRect)
+        assertEquals(1.0f, rightNorm.x, eps)
+
+        // 3. 5px 微调移动：归一化增量完全等于 5 / safeRect.width
+        val moved5px = QuadEditorMath.pointerToNormalized(PointF(safeRect.left + 5f, safeRect.top + 200f), safeRect)
+        val expectedDelta = 5f / safeRect.width
+        assertEquals(expectedDelta, moved5px.x, eps)
+
+        // 4. 真实角点位于 (0.0, 0.0) 和 (1.0, 1.0)，在 safe viewport 下仍能完整保留且无需人工裁剪偏移
+        val cornerTL = PointF(0.0f, 0.0f)
+        val cornerBR = PointF(1.0f, 1.0f)
+        val quad = Quadrilateral(cornerTL, PointF(1.0f, 0.0f), cornerBR, PointF(0.0f, 1.0f))
+        val updated = QuadEditorMath.applyCornerDrag(quad, 0, PointF(0.02f, 0.05f))
+        assertNotNull(updated)
+        assertEquals(0.02f, updated!!.topLeft.x, eps)
+        assertEquals(0.05f, updated.topLeft.y, eps)
+        assertEquals(1.0f, updated.bottomRight.x, eps)
+        assertEquals(1.0f, updated.bottomRight.y, eps)
+    }
 }

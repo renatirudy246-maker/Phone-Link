@@ -1,6 +1,7 @@
 package com.phonelink.app.ui
 
 import android.graphics.Bitmap
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -8,19 +9,27 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeGestures
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -101,7 +110,8 @@ fun AdjustingEdgesScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
+                    .windowInsetsPadding(WindowInsets.safeGestures.only(WindowInsetsSides.Horizontal))
+                    .padding(horizontal = 16.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 if (bitmap != null) {
@@ -214,6 +224,7 @@ private fun QuadEditor(
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .systemGestureExclusion()
             .onSizeChanged { viewSize = it }
             .pointerInput(viewSize) {
                 detectDragGestures(
@@ -384,7 +395,7 @@ private fun StatusChip(text: String, modifier: Modifier = Modifier) {
 
 /**
  * 扫描结果页：透视校正后的预览 + 增强切换（原图/自动/灰度/黑白，非破坏性）
- * + 重新调整边缘 / 裁切 / 发送（Primary）。
+ * + 调整边缘 / 裁切 / 发送（Primary）。
  */
 @Composable
 fun ScanPreviewScreen(
@@ -453,7 +464,7 @@ fun ScanPreviewScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
-                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 if (!cropped) {
@@ -465,19 +476,31 @@ fun ScanPreviewScreen(
                             val selected = mode == enhanceMode
                             OutlinedButton(
                                 onClick = { onEnhance(mode) },
-                                modifier = Modifier.weight(1f).height(36.dp),
-                                shape = RoundedCornerShape(18.dp),
-                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(38.dp),
+                                shape = RoundedCornerShape(19.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    containerColor = if (selected) BrandBlue.copy(alpha = 0.16f) else Color(0xFF1E222B),
+                                ),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (selected) BrandBlue else Color(0xFF2E333D),
+                                ),
+                                contentPadding = PaddingValues(horizontal = 4.dp),
                             ) {
                                 Text(
-                                    mode.label,
+                                    text = mode.label,
                                     color = if (selected) BrandBlue else Color(0xFFB9BDC4),
                                     style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                    maxLines = 1,
+                                    softWrap = false,
                                 )
                             }
                         }
                     }
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(10.dp))
                 } else {
                     Spacer(Modifier.height(4.dp))
                 }
@@ -499,26 +522,63 @@ fun ScanPreviewScreen(
                         }
                     }
                 }
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(10.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     OutlinedButton(
                         onClick = onAdjustEdges,
-                        modifier = Modifier.weight(1f).height(52.dp),
-                        shape = MaterialTheme.shapes.medium,
-                    ) { Text("重新调整边缘", color = Color.White) }
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(50.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, Color(0xFF3B414D)),
+                        contentPadding = PaddingValues(horizontal = 6.dp),
+                    ) {
+                        Text(
+                            "调整边缘",
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelLarge,
+                            maxLines = 1,
+                            softWrap = false,
+                        )
+                    }
                     OutlinedButton(
                         onClick = onCrop,
-                        modifier = Modifier.weight(0.8f).height(52.dp),
-                        shape = MaterialTheme.shapes.medium,
-                    ) { Text(if (cropped) "重新裁切" else "裁切", color = Color.White) }
+                        modifier = Modifier
+                            .weight(0.9f)
+                            .height(50.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, Color(0xFF3B414D)),
+                        contentPadding = PaddingValues(horizontal = 6.dp),
+                    ) {
+                        Text(
+                            if (cropped) "重新裁切" else "裁切",
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelLarge,
+                            maxLines = 1,
+                            softWrap = false,
+                        )
+                    }
                     Button(
                         onClick = onSend,
-                        modifier = Modifier.weight(1.2f).height(52.dp),
-                        shape = MaterialTheme.shapes.medium,
-                    ) { Text("发送", fontWeight = FontWeight.SemiBold) }
+                        modifier = Modifier
+                            .weight(1.3f)
+                            .height(50.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = BrandBlue),
+                        contentPadding = PaddingValues(horizontal = 12.dp),
+                    ) {
+                        Text(
+                            "发送",
+                            fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.labelLarge,
+                            maxLines = 1,
+                            softWrap = false,
+                        )
+                    }
                 }
             }
         }
