@@ -76,6 +76,9 @@ dependencies {
     // Phase 4B: local document scanning (OpenCV native, no cloud; AAR vendored in app/libs)
     implementation(files("libs/opencv-4.10.0.aar"))
 
+    // Phase 4B-D1: DocQuadNet-256 ML Inference via ONNX Runtime (Apache 2.0 / MIT)
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.20.0")
+
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")
 }

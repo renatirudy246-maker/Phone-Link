@@ -37,6 +37,7 @@ __pycache__/
 *.py[cod]
 tools/scanpoc/real-input/
 tools/scanpoc/out/
+tools/scanpoc/negatives/
 tools/scanpoc/*.tflite
 tools/scanpoc/models/
 tools/scanpoc/results/

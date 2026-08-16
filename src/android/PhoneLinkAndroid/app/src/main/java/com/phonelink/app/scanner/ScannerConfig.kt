@@ -26,10 +26,3 @@ object ScannerConfig {
 
 /** 检测状态（UI 提示用）。 */
 enum class DetectionStatus { DETECTED, LOW_CONFIDENCE, NOT_FOUND }
-
-/** 检测结果。 */
-sealed interface DocumentDetectionResult {
-    data class Detected(val quad: Quadrilateral, val confidence: Float) : DocumentDetectionResult
-    data class LowConfidence(val quad: Quadrilateral, val confidence: Float) : DocumentDetectionResult
-    data object NotFound : DocumentDetectionResult
-}

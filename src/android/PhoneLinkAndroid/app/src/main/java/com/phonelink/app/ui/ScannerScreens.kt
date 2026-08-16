@@ -117,8 +117,8 @@ fun AdjustingEdgesScreen(
                 StatusChip(
                     text = when (status) {
                         DetectionStatus.DETECTED -> "已检测到页面，可微调四角"
-                        DetectionStatus.LOW_CONFIDENCE -> "检测置信度较低，请检查四角"
-                        DetectionStatus.NOT_FOUND -> "未能准确识别页面，请调整四角"
+                        DetectionStatus.LOW_CONFIDENCE -> "请检查页面边缘"
+                        DetectionStatus.NOT_FOUND -> "未可靠识别页面，请手动调整"
                     },
                     modifier = Modifier.align(Alignment.TopCenter).padding(top = 12.dp),
                 )

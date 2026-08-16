@@ -416,7 +416,7 @@ private fun DetectionOverlay(
     val quad = when (result) {
         is DocumentDetectionResult.Detected -> result.quad
         is DocumentDetectionResult.LowConfidence -> result.quad
-        DocumentDetectionResult.NotFound -> null
+        is DocumentDetectionResult.NotFound -> null
     }
     if (quad == null) return
     Canvas(modifier = modifier) {
@@ -448,7 +448,7 @@ private fun DetectionStatusChip(
     val text = when (result) {
         is DocumentDetectionResult.Detected -> "已检测到页面"
         is DocumentDetectionResult.LowConfidence -> "请调整角度"
-        DocumentDetectionResult.NotFound -> "将页面放入取景框"
+        is DocumentDetectionResult.NotFound -> "将页面放入取景框"
     }
     Text(
         text = text,

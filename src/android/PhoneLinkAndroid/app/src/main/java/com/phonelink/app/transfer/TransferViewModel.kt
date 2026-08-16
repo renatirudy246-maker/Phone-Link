@@ -184,24 +184,24 @@ class TransferViewModel(app: Application) : AndroidViewModel(app) {
             val result = withContext(Dispatchers.Default) {
                 try {
                     val bitmap = android.graphics.BitmapFactory.decodeFile(original.file.absolutePath)
-                        ?: return@withContext DocumentDetectionResult.NotFound
-                    val r = DocumentDetector.detectHighQuality(bitmap)
+                        ?: return@withContext DocumentDetectionResult.NotFound(reason = "无法解码原图")
+                    val r = DocumentDetector.detectHighQuality(getApplication(), bitmap)
                     bitmap.recycle()
                     r
                 } catch (t: Throwable) {
                     Log.w(TAG, "document detection failed", t)
-                    DocumentDetectionResult.NotFound
+                    DocumentDetectionResult.NotFound(reason = "检测异常: ${t.message}")
                 }
             }
             val status = when (result) {
                 is DocumentDetectionResult.Detected -> DetectionStatus.DETECTED
                 is DocumentDetectionResult.LowConfidence -> DetectionStatus.LOW_CONFIDENCE
-                DocumentDetectionResult.NotFound -> DetectionStatus.NOT_FOUND
+                is DocumentDetectionResult.NotFound -> DetectionStatus.NOT_FOUND
             }
             val quad = when (result) {
                 is DocumentDetectionResult.Detected -> result.quad
                 is DocumentDetectionResult.LowConfidence -> result.quad
-                DocumentDetectionResult.NotFound -> Quadrilateral.DEFAULT
+                is DocumentDetectionResult.NotFound -> result.defaultQuad
             }
             sendState = SendUiState.AdjustingEdges(original.file, quad, status)
         }
