@@ -205,6 +205,7 @@ private fun CameraPreview(
             try {
                 val provider = providerFuture.get()
                 val preview = Preview.Builder().build()
+                preview.setSurfaceProvider(previewView.surfaceProvider)
                 val capture = ImageCapture.Builder()
                     .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
                     .setResolutionSelector(
