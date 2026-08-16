@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using System.Windows;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -28,6 +28,7 @@ public partial class App : System.Windows.Application
     private IHost? _host;
     private IReceiverHost? _receiver;
     private IMdnsAdvertiser? _mdns;
+    private IUdpDiscoveryResponder? _udpResponder;
     private TrayIcon? _tray;
     private bool _exiting;
 
@@ -84,6 +85,7 @@ public partial class App : System.Windows.Application
                     services.AddSingleton(receiverOptions);
                     services.AddSingleton<IReceiverHost, KestrelReceiverHost>();
                     services.AddSingleton<IMdnsAdvertiser, WindowsMdnsAdvertiser>();
+                    services.AddSingleton<IUdpDiscoveryResponder, UdpDiscoveryResponder>();
                     services.AddSingleton<MainViewModel>();
                 })
                 .Build();
@@ -91,6 +93,9 @@ public partial class App : System.Windows.Application
             await _host.StartAsync();
             _receiver = _host.Services.GetRequiredService<IReceiverHost>();
             await _receiver.StartAsync(CancellationToken.None);
+
+            _udpResponder = _host.Services.GetRequiredService<IUdpDiscoveryResponder>();
+            await _udpResponder.StartAsync(receiverOptions.Port, CancellationToken.None);
 
             var identity = await _host.Services.GetRequiredService<IDeviceIdentityProvider>()
                 .GetIdentityAsync(CancellationToken.None);
@@ -152,6 +157,7 @@ public partial class App : System.Windows.Application
         {
             _tray?.Dispose();
             _tray = null;
+            _udpResponder?.StopAsync(CancellationToken.None).GetAwaiter().GetResult();
             _mdns?.StopAsync(CancellationToken.None).GetAwaiter().GetResult();
             _receiver?.StopAsync(CancellationToken.None).GetAwaiter().GetResult();
             _host?.StopAsync(TimeSpan.FromSeconds(5)).GetAwaiter().GetResult();

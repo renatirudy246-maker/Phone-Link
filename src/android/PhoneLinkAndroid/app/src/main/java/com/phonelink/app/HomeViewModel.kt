@@ -69,27 +69,19 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** 从已保存配对凭据尝试连接（NSD 发现优先，回退上次端点）。 */
+    private val endpointResolver = com.phonelink.app.discovery.EndpointResolver(app, store)
+
+    /** 从已保存配对凭据尝试连接（快速探测 + 自动漫游自愈）。 */
     fun reconnect() {
-        val token = store.readToken() ?: run { uiState = HomeUiState.NoPairing; return }
-        val fingerprint = store.readFingerprint() ?: run { uiState = HomeUiState.NoPairing; return }
-        val desktopName = store.readDesktopName() ?: "Desktop"
-        uiState = HomeUiState.Paired(desktopName, ConnectionState.Connecting)
+        val paired = store.readPairedDesktop() ?: run { uiState = HomeUiState.NoPairing; return }
+        uiState = HomeUiState.Paired(paired.desktopName, ConnectionState.Connecting)
         viewModelScope.launch {
-            val endpoint = withContext(Dispatchers.IO) {
-                discoverer ?: DesktopDiscoverer(getApplication()).also { discoverer = it }
-            }
-            val found = withContext(Dispatchers.IO) { endpoint.discover() }
-            if (found != null) {
-                checkHealth(found.host, found.port, fingerprint, token, desktopName)
+            val cached = store.readEndpointCache()
+            val resolved = endpointResolver.resolve(paired, cached)
+            if (resolved != null) {
+                checkHealth(resolved.host, resolved.port, paired.certificateFingerprint, paired.deviceToken, paired.desktopName)
             } else {
-                // 回退：上次配对端点（host/port 非敏感）
-                val saved = loadSavedEndpoint()
-                if (saved != null) {
-                    checkHealth(saved.first, saved.second, fingerprint, token, desktopName)
-                } else {
-                    uiState = HomeUiState.Error("找不到桌面端（mDNS 发现失败）。", canRetryPair = false)
-                }
+                uiState = HomeUiState.Error("未找到已配对电脑，请确认手机与电脑在同一局域网或热点。", canRetryPair = true)
             }
         }
     }

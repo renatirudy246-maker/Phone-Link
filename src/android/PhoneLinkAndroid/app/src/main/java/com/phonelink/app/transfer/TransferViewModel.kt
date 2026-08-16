@@ -402,7 +402,9 @@ class TransferViewModel(app: Application) : AndroidViewModel(app) {
         sendState = SendUiState.Idle
     }
 
-    /** 发送：失败不确定时 GET 状态；Completed → 本地标成功，绝不重复上传。 */
+    private val endpointResolver = com.phonelink.app.discovery.EndpointResolver(app, store)
+
+    /** 发送：自动解析/自愈端点；失败不确定时 GET 状态；Completed → 本地标成功，绝不重复上传。 */
     fun send() {
         val image = working ?: prepared ?: return
         val currentManifest = manifest ?: return
@@ -411,30 +413,56 @@ class TransferViewModel(app: Application) : AndroidViewModel(app) {
 
         sendState = SendUiState.Uploading(0)
         viewModelScope.launch {
-            val repo = withContext(Dispatchers.IO) {
-                buildRepository()
-            } ?: run {
-                sending = false
-                sendState = SendUiState.Failed(
-                    TransferFailure(TransferFailureKind.AUTH_INVALID, "配对信息缺失，请重新配对。"),
+            val paired = store.readPairedDesktop() ?: run {
+                finishFailed(TransferFailure(TransferFailureKind.AUTH_INVALID, "配对信息缺失，请重新配对。"), currentManifest.transferId)
+                return@launch
+            }
+
+            var endpoint = withContext(Dispatchers.IO) {
+                endpointResolver.resolve(paired, store.readEndpointCache())
+            }
+
+            if (endpoint == null) {
+                finishFailed(
+                    TransferFailure(TransferFailureKind.DESKTOP_OFFLINE, "未找到已配对电脑，请确认手机与电脑在同一局域网或热点。", canRetry = true),
                     currentManifest.transferId,
                 )
                 return@launch
             }
 
-            val result = withContext(Dispatchers.IO) {
+            var repo = buildRepository(endpoint.host, endpoint.port, paired)
+            var uploadResult = withContext(Dispatchers.IO) {
                 repo.upload(currentManifest, image.file) { written, total ->
                     val percent = if (total <= 0) 0 else ((written * 100) / total).toInt()
                     updateProgressThrottled(percent)
                 }
             }
 
-            when (result) {
+            // 若发生网络 IO 异常（IP 切换/漫游），自动触发一次端点发现自愈，并复用同一 TransferId 幂等重传
+            if (uploadResult is TransferRepository.UploadResult.IoError) {
+                Log.w(TAG, "Upload failed on ${endpoint.host}:${endpoint.port}, attempting endpoint recovery...")
+                val recoveredEndpoint = withContext(Dispatchers.IO) {
+                    endpointResolver.recover(paired)
+                }
+                if (recoveredEndpoint != null && (recoveredEndpoint.host != endpoint.host || recoveredEndpoint.port != endpoint.port)) {
+                    Log.i(TAG, "Recovered new endpoint ${recoveredEndpoint.host}:${recoveredEndpoint.port}, retrying upload once...")
+                    endpoint = recoveredEndpoint
+                    repo = buildRepository(endpoint.host, endpoint.port, paired)
+                    uploadResult = withContext(Dispatchers.IO) {
+                        repo.upload(currentManifest, image.file) { written, total ->
+                            val percent = if (total <= 0) 0 else ((written * 100) / total).toInt()
+                            updateProgressThrottled(percent)
+                        }
+                    }
+                }
+            }
+
+            when (uploadResult) {
                 is TransferRepository.UploadResult.Success -> {
                     onCompleted()
                 }
                 is TransferRepository.UploadResult.HttpError -> {
-                    val failure = TransferErrorClassifier.fromHttp(result.statusCode, result.code)
+                    val failure = TransferErrorClassifier.fromHttp(uploadResult.statusCode, uploadResult.code)
                     if (failure.kind == TransferFailureKind.DEVICE_REVOKED ||
                         failure.kind == TransferFailureKind.AUTH_INVALID
                     ) {
@@ -449,12 +477,9 @@ class TransferViewModel(app: Application) : AndroidViewModel(app) {
                         is TransferRepository.StatusResult.Completed -> onCompleted()
                         is TransferRepository.StatusResult.NotFound,
                         is TransferRepository.StatusResult.Failed,
+                        is TransferRepository.StatusResult.Error,
                         -> finishFailed(
-                            TransferErrorClassifier.fromIo(result.exception),
-                            currentManifest.transferId,
-                        )
-                        is TransferRepository.StatusResult.Error -> finishFailed(
-                            TransferErrorClassifier.fromIo(result.exception),
+                            TransferErrorClassifier.fromIo(uploadResult.exception),
                             currentManifest.transferId,
                         )
                     }
@@ -465,69 +490,16 @@ class TransferViewModel(app: Application) : AndroidViewModel(app) {
 
     /** 失败后重试：复用同一 TransferId 与已准备文件（避免 PC 收到重复题目）。 */
     fun retry() {
-        val image = working ?: prepared ?: return
-        val currentManifest = manifest ?: return
-        if (sending) return
-        sending = true
-
-        sendState = SendUiState.Uploading(0)
-        viewModelScope.launch {
-            val repo = withContext(Dispatchers.IO) {
-                buildRepository()
-            } ?: run {
-                sending = false
-                sendState = SendUiState.Failed(
-                    TransferFailure(TransferFailureKind.AUTH_INVALID, "配对信息缺失，请重新配对。"),
-                    currentManifest.transferId,
-                )
-                return@launch
-            }
-
-            val result = withContext(Dispatchers.IO) {
-                repo.upload(currentManifest, image.file) { written, total ->
-                    val percent = if (total <= 0) 0 else ((written * 100) / total).toInt()
-                    updateProgressThrottled(percent)
-                }
-            }
-
-            when (result) {
-                is TransferRepository.UploadResult.Success -> onCompleted()
-                is TransferRepository.UploadResult.HttpError -> {
-                    val failure = TransferErrorClassifier.fromHttp(result.statusCode, result.code)
-                    if (failure.kind == TransferFailureKind.DEVICE_REVOKED ||
-                        failure.kind == TransferFailureKind.AUTH_INVALID
-                    ) {
-                        store.clear()
-                    }
-                    finishFailed(failure, currentManifest.transferId)
-                }
-                is TransferRepository.UploadResult.IoError -> {
-                    val status = withContext(Dispatchers.IO) { repo.getStatus(currentManifest.transferId) }
-                    when (status) {
-                        is TransferRepository.StatusResult.Completed -> onCompleted()
-                        is TransferRepository.StatusResult.NotFound,
-                        is TransferRepository.StatusResult.Failed,
-                        is TransferRepository.StatusResult.Error,
-                        -> finishFailed(
-                            TransferErrorClassifier.fromIo(result.exception),
-                            currentManifest.transferId,
-                        )
-                    }
-                }
-            }
-        }
+        send()
     }
 
-    private fun buildRepository(): TransferRepository? {
-        val token = store.readToken() ?: return null
-        val fingerprint = store.readFingerprint() ?: return null
-        val endpoint = store.readEndpoint() ?: return null
+    private fun buildRepository(host: String, port: Int, paired: com.phonelink.app.discovery.PairedDesktop): TransferRepository {
         return TransferRepository(
             clientFactory = { fp -> PinnedClientFactory.create(fp) },
-            host = endpoint.first,
-            port = endpoint.second,
-            fingerprint = fingerprint,
-            token = token,
+            host = host,
+            port = port,
+            fingerprint = paired.certificateFingerprint,
+            token = paired.deviceToken,
         )
     }
 

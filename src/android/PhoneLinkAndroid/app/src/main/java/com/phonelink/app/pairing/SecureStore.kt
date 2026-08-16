@@ -46,6 +46,14 @@ class SecureStore(context: Context) {
 
     fun readFingerprint(): String? = decrypt(prefs.getString(KEY_FINGERPRINT, null))
 
+    fun readPairedDesktop(): com.phonelink.app.discovery.PairedDesktop? {
+        val token = readToken() ?: return null
+        val deviceId = readDesktopId() ?: return null
+        val fingerprint = readFingerprint() ?: return null
+        val desktopName = readDesktopName() ?: "Desktop"
+        return com.phonelink.app.discovery.PairedDesktop(deviceId, fingerprint, token, desktopName)
+    }
+
     /** 端点（host/port）非敏感，明文保存用于 NSD 失败时回退。 */
     fun saveEndpoint(host: String, port: Int) {
         prefs.edit().putString(KEY_ENDPOINT_HOST, host).putInt(KEY_ENDPOINT_PORT, port).apply()
@@ -56,6 +64,11 @@ class SecureStore(context: Context) {
         val port = prefs.getInt(KEY_ENDPOINT_PORT, 0)
         if (port !in 1..65535) return null
         return host to port
+    }
+
+    fun readEndpointCache(): com.phonelink.app.discovery.EndpointCache? {
+        val ep = readEndpoint() ?: return null
+        return com.phonelink.app.discovery.EndpointCache(ep.first, ep.second)
     }
 
     /**
