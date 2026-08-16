@@ -15,15 +15,19 @@ import android.view.Surface
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import android.graphics.Bitmap
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.core.UseCaseGroup
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -57,15 +61,24 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import com.phonelink.app.BuildConfig
+import com.phonelink.app.scanner.DocumentDetector
+import com.phonelink.app.scanner.DocumentDetectionResult
+import com.phonelink.app.scanner.ScannerConfig
 import java.io.File
 import java.time.OffsetDateTime
 import java.util.concurrent.Executor
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asExecutor
 
 /**
  * 相机首页：CameraX Preview（3:4 画幅）+ 快门 + Gallery。
@@ -165,7 +178,23 @@ private fun CameraPreview(
     var cameraError by remember { mutableStateOf<String?>(null) }
     var capturing by remember { mutableStateOf(false) }
 
+    // 文档实时检测状态（overlay 只消费检测结果，不接触 Mat/contour）
+    var detection by remember { mutableStateOf<DocumentDetectionResult?>(null) }
+    var analysisSize by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+
     val executor: Executor = remember { ContextCompat.getMainExecutor(context) }
+    val analysisExecutor: Executor = remember { Dispatchers.Default.asExecutor() }
+
+    // 分析器在后台线程执行检测，结果回调切回主线程更新 Compose 状态
+    val analyzer = remember {
+        DocumentAnalyzer(
+            intervalMs = ScannerConfig.LIVE_DETECT_INTERVAL_MS,
+            onResult = { result, size ->
+                analysisSize = size
+                executor.execute { detection = result }
+            },
+        )
+    }
 
     DisposableEffect(lifecycleOwner) {
         val providerFuture = ProcessCameraProvider.getInstance(context)
@@ -176,6 +205,7 @@ private fun CameraPreview(
             try {
                 val provider = providerFuture.get()
                 val preview = Preview.Builder().build()
+                preview.setSurfaceProvider(previewView.surfaceProvider)
                 val capture = ImageCapture.Builder()
                     .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
                     .setResolutionSelector(
@@ -184,9 +214,7 @@ private fun CameraPreview(
                             .build()
                     )
                     .build()
-                preview.setSurfaceProvider(previewView.surfaceProvider)
-                provider.unbindAll()
-
+                // Phase 4B Decision Gate：暂关实时分析与 Overlay，专注于 Post-Capture 检测评估
                 val viewPort = previewView.viewPort
                 if (viewPort != null) {
                     val group = UseCaseGroup.Builder()
@@ -200,7 +228,6 @@ private fun CameraPreview(
                         group,
                     )
                 } else {
-                    // 极端情况（预览区未完成布局）回退普通绑定，功能不中断
                     provider.bindToLifecycle(
                         lifecycleOwner,
                         CameraSelector.DEFAULT_BACK_CAMERA,
@@ -267,6 +294,8 @@ private fun CameraPreview(
                 modifier = Modifier.fillMaxSize(),
             )
 
+            // Phase 4B Decision Gate：暂关实时 Overlay，只展示纯净 Camera Preview
+
             if (cameraError != null) {
                 Column(
                     modifier = Modifier.align(Alignment.Center),
@@ -330,6 +359,105 @@ private fun CameraPreview(
             }
         }
     }
+}
+
+/** 实时检测分析器：节流 + 后台检测 + 结果回调（调用方负责切回主线程）。 */
+private class DocumentAnalyzer(
+    private val intervalMs: Long,
+    private val onResult: (DocumentDetectionResult, Pair<Int, Int>) -> Unit,
+) : ImageAnalysis.Analyzer {
+
+    private var lastAnalyzedAt = 0L
+
+    override fun analyze(image: ImageProxy) {
+        val now = System.currentTimeMillis()
+        if (now - lastAnalyzedAt < intervalMs) {
+            image.close()
+            return
+        }
+        lastAnalyzedAt = now
+        val size = image.width to image.height
+        val bitmap = image.toBitmap()
+        image.close()
+        try {
+            val result = DocumentDetector.detectLive(bitmap)
+            onResult(result, size)
+        } catch (t: Throwable) {
+            // 任何检测失败（含 native 未加载）都不能导致崩溃
+            Log.w("PhoneLinkCamera", "live detection failed", t)
+        } finally {
+            bitmap.recycle()
+        }
+    }
+}
+
+/** ImageProxy(RGBA_8888) → Bitmap（处理 rowStride 对齐）。 */
+private fun ImageProxy.toBitmap(): Bitmap {
+    val plane = planes[0]
+    val buffer = plane.buffer
+    val pixelStride = plane.pixelStride
+    val rowStride = plane.rowStride
+    val rowPadding = rowStride - pixelStride * width
+    val bitmap = Bitmap.createBitmap(width + rowPadding / pixelStride, height, Bitmap.Config.ARGB_8888)
+    bitmap.copyPixelsFromBuffer(buffer)
+    return if (rowPadding == 0) {
+        bitmap
+    } else {
+        Bitmap.createBitmap(bitmap, 0, 0, width, height).also { bitmap.recycle() }
+    }
+}
+
+/** 实时边缘框：Detected/LowConfidence 画蓝色四边形（含候选），NotFound 只画状态。 */
+@Composable
+private fun DetectionOverlay(
+    result: DocumentDetectionResult,
+    modifier: Modifier = Modifier,
+) {
+    val quad = when (result) {
+        is DocumentDetectionResult.Detected -> result.quad
+        is DocumentDetectionResult.LowConfidence -> result.quad
+        is DocumentDetectionResult.NotFound -> null
+    }
+    if (quad == null) return
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val pts = quad.points.map { Offset(it.x * w, it.y * h) }
+        val path = Path().apply {
+            moveTo(pts[0].x, pts[0].y)
+            lineTo(pts[1].x, pts[1].y)
+            lineTo(pts[2].x, pts[2].y)
+            lineTo(pts[3].x, pts[3].y)
+            close()
+        }
+        drawPath(path, Color(0x144C9AFF))
+        drawPath(path, Color(0xFF4C9AFF), style = Stroke(width = 4f))
+        val r = 7f
+        pts.forEach { p ->
+            drawCircle(Color(0xFF4C9AFF), r, p)
+        }
+    }
+}
+
+/** 轻量检测状态提示。 */
+@Composable
+private fun DetectionStatusChip(
+    result: DocumentDetectionResult,
+    modifier: Modifier = Modifier,
+) {
+    val text = when (result) {
+        is DocumentDetectionResult.Detected -> "已检测到页面"
+        is DocumentDetectionResult.LowConfidence -> "请调整角度"
+        is DocumentDetectionResult.NotFound -> "将页面放入取景框"
+    }
+    Text(
+        text = text,
+        color = Color.White,
+        style = MaterialTheme.typography.labelMedium,
+        modifier = modifier
+            .background(Color(0xB31B1E25), RoundedCornerShape(20.dp))
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+    )
 }
 
 /** 快门：外圈 + 内实心圆 + 按压反馈，68dp touch target。 */

@@ -91,6 +91,56 @@ object ImagePreparer {
         )
     }
 
+    /**
+     * 从已规范化文件按像素区域裁切（全分辨率，一次 JPEG 编码 quality 95）。
+     * 输入为方向归一化像素（prepare 输出），因此用户看到的方向 = 裁切坐标方向。
+     */
+    fun crop(source: File, rect: com.phonelink.app.crop.CropRect, outFile: File, quality: Int = JPEG_QUALITY): PreparedImage {
+        val bitmap = try {
+            BitmapFactory.decodeFile(source.absolutePath)
+        } catch (e: Exception) {
+            throw PrepareException("无法解码图片：${e.message}", e)
+        } ?: throw PrepareException("无法解码图片（格式不支持或文件损坏）。")
+
+        return try {
+            crop(bitmap, rect, outFile, quality)
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    /**
+     * 从已解码 Bitmap 裁切并编码（全分辨率，一次 JPEG 编码 quality 95）。
+     * 调用方负责 recycle 传入的 bitmap（本函数不回收）。
+     */
+    fun crop(bitmap: Bitmap, rect: com.phonelink.app.crop.CropRect, outFile: File, quality: Int = JPEG_QUALITY): PreparedImage {
+        val left = rect.left.coerceIn(0, bitmap.width - 1)
+        val top = rect.top.coerceIn(0, bitmap.height - 1)
+        val right = rect.right.coerceIn(left + 1, bitmap.width)
+        val bottom = rect.bottom.coerceIn(top + 1, bitmap.height)
+
+        val cropped = Bitmap.createBitmap(bitmap, left, top, right - left, bottom - top)
+        val outWidth = cropped.width
+        val outHeight = cropped.height
+        try {
+            FileOutputStream(outFile).use { out ->
+                cropped.compress(Bitmap.CompressFormat.JPEG, quality, out)
+            }
+        } catch (e: Exception) {
+            throw PrepareException("写入裁切图片失败：${e.message}", e)
+        } finally {
+            cropped.recycle()
+        }
+        val sha256 = sha256Hex(outFile)
+        return PreparedImage(
+            file = outFile,
+            width = outWidth,
+            height = outHeight,
+            sha256 = sha256,
+            fileSize = outFile.length(),
+        )
+    }
+
     /** 读取 EXIF orientation（0=无需旋转，90/180/270 顺时针旋转角度）。 */
     private fun readOrientation(bytes: ByteArray): Int {
         return try {

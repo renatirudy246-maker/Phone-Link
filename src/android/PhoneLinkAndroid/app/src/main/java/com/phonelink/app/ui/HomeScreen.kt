@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -33,6 +34,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -73,6 +76,8 @@ fun HomeScreen(
     onGalleryPicked: (android.net.Uri) -> Unit,
     onUnpair: () -> Unit,
     onReconnect: () -> Unit,
+    feedbackEnabled: Boolean = false,
+    onFeedbackEnabledChange: (Boolean) -> Unit = {},
 ) {
     var showSettings by remember { mutableStateOf(false) }
     val galleryLauncher = rememberLauncherForActivityResult(
@@ -141,6 +146,8 @@ fun HomeScreen(
         DeviceSettingsSheet(
             desktopName = desktopName,
             connection = connection,
+            feedbackEnabled = feedbackEnabled,
+            onFeedbackEnabledChange = onFeedbackEnabledChange,
             onReconnect = onReconnect,
             onUnpair = onUnpair,
             onDismiss = { showSettings = false },
@@ -281,6 +288,8 @@ fun DeviceSettingsSheet(
     desktopName: String,
     connection: ConnectionState,
     deviceId: String = "",
+    feedbackEnabled: Boolean = false,
+    onFeedbackEnabledChange: (Boolean) -> Unit = {},
     onReconnect: () -> Unit,
     onUnpair: () -> Unit,
     onDismiss: () -> Unit,
@@ -353,6 +362,38 @@ fun DeviceSettingsSheet(
                     "设备 ID  ${deviceId.takeLast(8)}",
                     fontSize = 13.sp,
                     color = TextFaint,
+                )
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "保存扫描纠错样本",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = TextMain,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        "将手动调整的页面边缘和原始图片保存在已配对电脑上，用于以后改进页面识别。数据不会上传云端。",
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp,
+                        color = TextFaint,
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Switch(
+                    checked = feedbackEnabled,
+                    onCheckedChange = onFeedbackEnabledChange,
+                    colors = SwitchDefaults.colors(
+                        checkedTrackColor = Primary,
+                        checkedThumbColor = Color.White,
+                    ),
                 )
             }
 

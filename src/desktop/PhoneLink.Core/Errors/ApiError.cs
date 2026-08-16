@@ -20,6 +20,9 @@ public static class ErrorCodes
     public const string AiAuthFailed = "AI_AUTH_FAILED";
     public const string AiTimeout = "AI_TIMEOUT";
     public const string AiProviderError = "AI_PROVIDER_ERROR";
+    public const string FeedbackInvalid = "FEEDBACK_INVALID";
+    public const string FeedbackTooLarge = "FEEDBACK_TOO_LARGE";
+    public const string FeedbackHashMismatch = "FEEDBACK_HASH_MISMATCH";
 }
 
 public sealed record ApiError(string Code, string Message, bool Retryable);

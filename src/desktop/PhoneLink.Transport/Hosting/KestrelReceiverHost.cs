@@ -10,6 +10,7 @@ using Microsoft.Net.Http.Headers;
 using PhoneLink.Core;
 using PhoneLink.Core.Auth;
 using PhoneLink.Core.Errors;
+using PhoneLink.Core.Feedback;
 using PhoneLink.Core.Identity;
 using PhoneLink.Core.Models;
 using PhoneLink.Core.Pairing;
@@ -25,6 +26,7 @@ namespace PhoneLink.Transport.Hosting;
 ///   POST /v1/pair                  一次性 PairingSession 交换长期 Device Token
 ///   POST /v1/transfers             multipart 上传（metadata + file）
 ///   GET  /v1/transfers/{id}        上传状态确认
+///   POST /api/v1/scanner-feedback  扫描纠错样本上传（metadata + source.jpg，Phase 4B-D2）
 /// </summary>
 public sealed class KestrelReceiverHost : IReceiverHost
 {
@@ -36,6 +38,7 @@ public sealed class KestrelReceiverHost : IReceiverHost
     private readonly ITlsCertificateProvider _certificateProvider;
     private readonly IPairingSessionService _pairingSessionService;
     private readonly IPairedDeviceRepository _pairedDeviceRepository;
+    private readonly IScannerFeedbackService _scannerFeedbackService;
 
     private WebApplication? _app;
     private volatile bool _isPaused;
@@ -54,7 +57,8 @@ public sealed class KestrelReceiverHost : IReceiverHost
         ILoggerFactory loggerFactory,
         ITlsCertificateProvider certificateProvider,
         IPairingSessionService pairingSessionService,
-        IPairedDeviceRepository pairedDeviceRepository)
+        IPairedDeviceRepository pairedDeviceRepository,
+        IScannerFeedbackService scannerFeedbackService)
     {
         _options = options;
         _deviceIdentity = deviceIdentity;
@@ -64,6 +68,7 @@ public sealed class KestrelReceiverHost : IReceiverHost
         _certificateProvider = certificateProvider;
         _pairingSessionService = pairingSessionService;
         _pairedDeviceRepository = pairedDeviceRepository;
+        _scannerFeedbackService = scannerFeedbackService;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -75,6 +80,7 @@ public sealed class KestrelReceiverHost : IReceiverHost
         builder.Services.AddSingleton(_transferService);
         builder.Services.AddSingleton(_pairingSessionService);
         builder.Services.AddSingleton(_pairedDeviceRepository);
+        builder.Services.AddSingleton(_scannerFeedbackService);
         builder.Services.AddSingleton<ILoggerFactory>(_loggerFactory);
 
         var certificate = _certificateProvider.GetOrCreateCertificate();
@@ -341,6 +347,126 @@ public sealed class KestrelReceiverHost : IReceiverHost
                     errorCode = record.ErrorCode,
                     localFilePath = record.LocalFilePath,
                 });
+        });
+
+        app.MapPost("/api/v1/scanner-feedback", async (HttpContext context, CancellationToken ct) =>
+        {
+            var validation = await TryAuthenticateAsync(context, ct);
+            if (!validation.IsValid)
+            {
+                return AuthError(validation);
+            }
+
+            if (_isPaused)
+            {
+                return ApiErrorMapper.ToResult(new ApiError(
+                    ErrorCodes.ServicePaused, "Receiving is paused.", Retryable: true));
+            }
+
+            if (!MediaTypeHeaderValue.TryParse(context.Request.ContentType, out var contentType)
+                || !string.Equals(contentType.MediaType.ToString(), "multipart/form-data", StringComparison.OrdinalIgnoreCase))
+            {
+                return ApiErrorMapper.InvalidRequest("Expected multipart/form-data.");
+            }
+
+            var logger = context.RequestServices.GetRequiredService<ILogger<KestrelReceiverHost>>();
+
+            ScannerFeedbackMetadata? metadata = null;
+            Stream? fileStream = null;
+
+            try
+            {
+                var boundary = contentType.Boundary.Value?.ToString().Trim('"') ?? string.Empty;
+                if (string.IsNullOrEmpty(boundary))
+                {
+                    return ApiErrorMapper.InvalidRequest("Missing multipart boundary.");
+                }
+
+                var reader = new MultipartReader(boundary, context.Request.Body);
+                MultipartSection? section;
+                while ((section = await reader.ReadNextSectionAsync(ct)) is not null)
+                {
+                    var disposition = section.GetContentDispositionHeader();
+                    var name = disposition?.Name.Value?.Trim('"');
+
+                    if (name == "metadata")
+                    {
+                        if (metadata is not null)
+                        {
+                            return ApiErrorMapper.InvalidRequest("Duplicate metadata part.");
+                        }
+
+                        var json = await ReadLimitedStringAsync(section.Body, ScannerFeedbackMetadataParser.MaxMetadataBytes, ct);
+                        try
+                        {
+                            metadata = ScannerFeedbackMetadataParser.Parse(json);
+                        }
+                        catch (FeedbackMetadataParseException ex)
+                        {
+                            return ApiErrorMapper.ToResult(new ApiError(
+                                ErrorCodes.FeedbackInvalid, ex.Message, Retryable: false));
+                        }
+                    }
+                    else if (name == "file")
+                    {
+                        if (metadata is null)
+                        {
+                            return ApiErrorMapper.InvalidRequest("metadata part must precede file part.");
+                        }
+
+                        if (fileStream is not null)
+                        {
+                            return ApiErrorMapper.InvalidRequest("Duplicate file part.");
+                        }
+
+                        fileStream = section.Body;
+                        break;
+                    }
+                }
+
+                if (metadata is null || fileStream is null)
+                {
+                    return ApiErrorMapper.InvalidRequest("Both metadata and file parts are required.");
+                }
+
+                var result = await _scannerFeedbackService.StoreAsync(metadata!, fileStream, ct);
+                if (!result.IsSuccess)
+                {
+                    return ApiErrorMapper.ToResult(result.Error!);
+                }
+
+                logger.LogInformation(
+                    "Scanner feedback {SampleId} stored by device {DeviceId}.",
+                    metadata!.SampleId, Ids.Short(validation.DeviceId ?? "unknown"));
+
+                return Results.Json(new
+                {
+                    sampleId = metadata.SampleId,
+                    status = result.AlreadyStored ? "already_stored" : "stored",
+                });
+            }
+            catch (FeedbackProcessingException ex)
+            {
+                return ApiErrorMapper.ToResult(ex.Error);
+            }
+            catch (JsonException)
+            {
+                return ApiErrorMapper.InvalidRequest("Malformed metadata JSON.");
+            }
+            catch (InvalidDataException)
+            {
+                return ApiErrorMapper.InvalidRequest("Malformed multipart body.");
+            }
+            catch (OperationCanceledException)
+            {
+                return Results.StatusCode(StatusCodes.Status499ClientClosedRequest);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Unexpected error while storing scanner feedback.");
+                return ApiErrorMapper.ToResult(new ApiError(
+                    ErrorCodes.DiskWriteFailed, "Unexpected server error.", Retryable: true));
+            }
         });
     }
 

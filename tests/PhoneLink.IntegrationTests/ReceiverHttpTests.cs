@@ -405,7 +405,10 @@ public class ReceiverHttpTests
 
         var host = new KestrelReceiverHost(
             new ReceiverOptions { Port = port }, identity, validator, transferService,
-            Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance, certificate, pairing, deviceRepository);
+            Microsoft.Extensions.Logging.Abstractions.NullLoggerFactory.Instance, certificate, pairing, deviceRepository,
+            new PhoneLink.Infrastructure.Feedback.ScannerFeedbackService(
+                new AppPaths(baseDir),
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<PhoneLink.Infrastructure.Feedback.ScannerFeedbackService>.Instance));
         await host.StartAsync(CancellationToken.None);
 
         var handler = new HttpClientHandler

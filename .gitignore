@@ -32,3 +32,22 @@ PhoneLink/logs/
 # Android Kotlin build cache
 .kotlin/
 
+# Python / Scan PoC local data & models (do not commit test photos or models)
+__pycache__/
+*.py[cod]
+tools/scanpoc/real-input/
+tools/scanpoc/out/
+tools/scanpoc/negatives/
+tools/scanpoc/*.tflite
+tools/scanpoc/models/
+tools/scanpoc/results/
+
+# Local tools cache
+.codegraph/
+
+# Scanner feedback dataset (Phase 4B-D2): real photos must never be committed
+tools/scanner-feedback/out/
+tools/scanner-feedback/real-input/
+tools/scanner-feedback/training-photos/
+tools/scanner-feedback/*.jpg
+tools/scanner-feedback/*.png

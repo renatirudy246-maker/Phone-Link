@@ -6,6 +6,7 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using PhoneLink.Core.Auth;
+using PhoneLink.Core.Feedback;
 using PhoneLink.Core.Identity;
 using PhoneLink.Core.Pairing;
 using PhoneLink.Core.Security;
@@ -16,6 +17,7 @@ using PhoneLink.Infrastructure.Pairing;
 using PhoneLink.Infrastructure.Paths;
 using PhoneLink.Infrastructure.Storage;
 using PhoneLink.Infrastructure.Transfers;
+using PhoneLink.Infrastructure.Feedback;
 using PhoneLink.Transport.Hosting;
 
 namespace PhoneLink.IntegrationTests;
@@ -41,6 +43,7 @@ public sealed class ReceiverTestHost : IAsyncDisposable
     public IPairingSessionService PairingSessionService { get; }
     public IPairedDeviceRepository DeviceRepository { get; }
     public IDeviceIdentityProvider Identity { get; }
+    public IScannerFeedbackService ScannerFeedback { get; }
     public X509Certificate2 Certificate { get; }
     public IReceiverHost Receiver => _host;
 
@@ -54,6 +57,7 @@ public sealed class ReceiverTestHost : IAsyncDisposable
         IPairingSessionService pairingSessionService,
         IPairedDeviceRepository deviceRepository,
         IDeviceIdentityProvider identity,
+        IScannerFeedbackService scannerFeedback,
         X509Certificate2 certificate,
         string desktopDeviceId,
         string desktopCertificateFingerprint,
@@ -69,6 +73,7 @@ public sealed class ReceiverTestHost : IAsyncDisposable
         PairingSessionService = pairingSessionService;
         DeviceRepository = deviceRepository;
         Identity = identity;
+        ScannerFeedback = scannerFeedback;
         Certificate = certificate;
         DesktopDeviceId = desktopDeviceId;
         DesktopCertificateFingerprint = desktopCertificateFingerprint;
@@ -100,6 +105,8 @@ public sealed class ReceiverTestHost : IAsyncDisposable
         var pairingSessionService = new PairingSessionService(
             db, identity, certificate, "127.0.0.1", port, NullLogger<PairingSessionService>.Instance);
         var validator = new PairedDeviceTokenValidator(db, deviceRepository);
+        var feedbackService = new ScannerFeedbackService(
+            paths, NullLogger<ScannerFeedbackService>.Instance);
 
         var host = new KestrelReceiverHost(
             options,
@@ -109,7 +116,8 @@ public sealed class ReceiverTestHost : IAsyncDisposable
             NullLoggerFactory.Instance,
             certificate,
             pairingSessionService,
-            deviceRepository);
+            deviceRepository,
+            feedbackService);
 
         await host.StartAsync(CancellationToken.None);
 
@@ -127,7 +135,7 @@ public sealed class ReceiverTestHost : IAsyncDisposable
         var desktopCert = certificate.GetOrCreateCertificate();
         return new ReceiverTestHost(
             host, paths, client.BaseAddress.ToString(), client, bus, repository,
-            pairingSessionService, deviceRepository, identity, desktopCert,
+            pairingSessionService, deviceRepository, identity, feedbackService, desktopCert,
             identityInfo.DeviceId,
             CertificateFingerprint.ComputeSha256Hex(desktopCert),
             baseDir, deleteOnDispose);

@@ -1,6 +1,7 @@
 package com.phonelink.app
 
 import android.Manifest
+import android.app.Activity
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.widget.Toast
@@ -47,7 +48,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.phonelink.app.transfer.SendUiState
 import com.phonelink.app.transfer.TransferViewModel
 import com.phonelink.app.ui.CameraScreen
-import com.phonelink.app.ui.CapturePreviewScreen
 import com.phonelink.app.ui.HomeScreen
 import com.phonelink.app.ui.SendCompletedScreen
 import com.phonelink.app.ui.SendFailedScreen
@@ -76,6 +76,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Phase 4B：初始化本地 OpenCV（native 库由 AAR 打包）。
+        // 失败仅禁用文档检测，不阻塞拍照等核心功能。
+        try {
+            org.opencv.android.OpenCVLoader.initLocal()
+        } catch (_: Throwable) {
+        }
         setContent {
             PhoneLinkTheme {
                 AppRoot(
@@ -116,14 +122,19 @@ private fun AppRoot(
     val sendState = transferVm.sendState
 
     // 系统 Back：
-    //  Camera → Home；Preview → 重拍回来源页；Success → Home；Home → 退出
+    //  Camera → Home；Detecting/Adjusting/Preview → 重拍回来源页；Success → Home；Home → 退出
     BackHandler(enabled = state is HomeUiState.Paired) {
         when {
             sendState is SendUiState.Completed -> {
                 transferVm.done()
                 screen = AppScreen.Home
             }
-            sendState is SendUiState.Preview -> {
+            sendState is SendUiState.Cropping -> {
+                transferVm.cancelCrop()
+            }
+            sendState is SendUiState.Detecting ||
+            sendState is SendUiState.AdjustingEdges ||
+            sendState is SendUiState.ScanPreview -> {
                 transferVm.retake()
                 if (screen == AppScreen.Camera) screen = AppScreen.Home
             }
@@ -209,6 +220,8 @@ private fun PairedContent(
                         onGalleryPicked = { vm.onGalleryPicked(it) },
                         onUnpair = onUnpair,
                         onReconnect = onReconnect,
+                        feedbackEnabled = vm.feedbackEnabled,
+                        onFeedbackEnabledChange = { vm.updateFeedbackEnabled(it) },
                     )
                     AppScreen.Camera -> CameraPage(
                         vm = vm,
@@ -216,17 +229,50 @@ private fun PairedContent(
                     )
                 }
             }
-            SendUiState.Preparing -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            is SendUiState.Preparing -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator(color = Color.White)
                     Spacer(Modifier.height(16.dp))
-                    Text("正在处理图片…", color = Color(0xFFB9BDC4))
+                    Text(sendState.message, color = Color(0xFFB9BDC4))
                 }
             }
-            is SendUiState.Preview -> CapturePreviewScreen(
+            is SendUiState.Detecting -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(color = Color.White)
+                    Spacer(Modifier.height(16.dp))
+                    Text("正在扫描文档…", color = Color(0xFFB9BDC4))
+                }
+            }
+            is SendUiState.AdjustingEdges -> com.phonelink.app.ui.AdjustingEdgesScreen(
+                sourceFile = sendState.sourceFile,
+                initialQuad = sendState.quad,
+                status = sendState.status,
+                onBack = {
+                    vm.retake()
+                    if (screen == AppScreen.Camera) onScreenChange(AppScreen.Home)
+                },
+                onUseFullImage = { vm.useFullImage() },
+                onNext = { quad -> vm.confirmScan(quad) },
+            )
+            is SendUiState.ScanPreview -> com.phonelink.app.ui.ScanPreviewScreen(
                 previewFile = sendState.previewFile,
-                onRetake = { vm.retake() },
+                cropped = vm.cropped,
+                enhanceMode = vm.currentEnhanceMode,
+                isProcessing = vm.isEnhancing,
+                onBack = {
+                    vm.retake()
+                    if (screen == AppScreen.Camera) onScreenChange(AppScreen.Home)
+                },
+                onAdjustEdges = { vm.reAdjustEdges() },
+                onEnhance = { mode -> vm.setEnhanceMode(mode) },
+                onCrop = { vm.enterCrop() },
+                onRestoreOriginal = { vm.restoreOriginal() },
                 onSend = { vm.send() },
+            )
+            is SendUiState.Cropping -> com.phonelink.app.ui.CropEditorScreen(
+                sourceFile = sendState.sourceFile,
+                onCancel = { vm.cancelCrop() },
+                onConfirm = { rect -> vm.confirmCrop(rect) },
             )
             is SendUiState.Uploading -> UploadingScreen(sendState.percent)
             is SendUiState.Completed -> SendCompletedScreen(
