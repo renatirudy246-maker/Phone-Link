@@ -13,8 +13,9 @@ Phone-Link is a high-performance, zero-cloud, peer-to-peer document scanning and
 
 ### Current Git Status
 - **Current Branch:** `handoff/gemini-scanner`
-- **Latest Commit (HEAD):** `e2b4f4d` (`feat(scanner): complete Scan Result Screen V2 rewrite and deploy deterministic Enhance V2 pipeline (Phase 4B-D1.2)`)
+- **Latest Commit (HEAD):** `2207689` (`checkpoint: stabilize scanner, roaming, and scan-result flow before DeepSeek handoff`)
 - **Key Milestones in Branch History:**
+  - `2207689` — Handoff checkpoint: scanner / roaming / scan-result flow stabilized.
   - `e2b4f4d` — Phase 4B-D1.2: Scan Result Screen V2 (4 fixed regions, single segmented control, in-memory mode cache, Enhance V2).
   - `c2a0fd2` — Phase 4B-D1.1: Compact vertical layout, rename 自动 $\rightarrow$ 增强.
   - `d0947b3` — Phase 4B-D1.1: Lab enhancement pipeline, gesture-safe QuadEditor with safe insets.
@@ -91,11 +92,11 @@ When Android connects to Windows PC via Phone Hotspot (or roaming Wi-Fi):
 ## 4. Subsystem Details & Specifications
 
 ### 1. DocQuadNet-256 Model
-- **File Location:** `src/android/PhoneLinkAndroid/app/src/main/assets/docquadnet_256.onnx`
-- **File Size:** 14,475,807 bytes (13.80 MB)
-- **SHA-256:** `3b4e6d3cfc1417ca9cb09dc3909772ee571ef2506e788bc5392e212dbd666fae`
-- **License:** Apache License 2.0 (Origin: `egdels/makeacopy`)
-- **Runtime Dependency:** `com.microsoft.onnxruntime:onnxruntime-android:1.20.0`
+- **File Location:** `src/android/PhoneLinkAndroid/app/src/main/assets/docquad/docquadnet256_trained_opset17.ort`
+- **File Size:** 13,404,952 bytes (12.78 MB)
+- **SHA-256:** `aaef348eb81709d26f7e8974401795b141d70ba88bc69792c779fbae102eadaa`
+- **License:** Apache License 2.0 (Origin: `egdels/makeacopy`; `NOTICE.txt` bundled at `assets/docquad/NOTICE.txt`)
+- **Runtime Dependency:** `com.microsoft.onnxruntime:onnxruntime-android:1.20.0` (pinned in `app/build.gradle.kts`)
 - **Tensor Input:** `[1, 3, 256, 256]`, float32 normalized by `(x / 255.0 - 0.5) / 0.5`.
 - **Tensor Outputs:**
   - `mask`: `[1, 1, 64, 64]` (document segmentation logits)
@@ -182,7 +183,9 @@ phone-link/
 │   ├── android/PhoneLinkAndroid/
 │   │   ├── app/src/main/
 │   │   │   ├── assets/
-│   │   │   │   └── docquadnet_256.onnx            # DocQuadNet-256 ONNX model (Apache-2.0)
+│   │   │   │   └── docquad/
+│   │   │   │       ├── docquadnet256_trained_opset17.ort  # DocQuadNet-256 ONNX model (Apache-2.0)
+│   │   │   │       └── NOTICE.txt                        # Apache-2.0 notice
 │   │   │   ├── java/com/phonelink/app/
 │   │   │   │   ├── MainActivity.kt               # App routing & lifecycle orchestration
 │   │   │   │   ├── discovery/
@@ -190,7 +193,7 @@ phone-link/
 │   │   │   │   │   ├── UdpDesktopDiscoverer.kt   # UDP 8485 broadcast client
 │   │   │   │   │   └── DesktopDiscoverer.kt      # mDNS NSD discoverer
 │   │   │   │   ├── scanner/
-│   │   │   │   │   ├── DocQuadNetEngine.kt       # ONNX Runtime model inference wrapper
+│   │   │   │   │   ├── DocQuadNetDetectionEngine.kt  # ONNX Runtime model inference wrapper
 │   │   │   │   │   ├── DocumentDetector.kt       # Document detection coordinator
 │   │   │   │   │   ├── DocumentQualityEvaluator.kt # Presence & geometry quality gate
 │   │   │   │   │   ├── HighResEdgeRefiner.kt     # OpenCV Sobel edge refiner
