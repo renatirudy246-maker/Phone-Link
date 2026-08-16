@@ -23,6 +23,35 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+
+            // Release signing via environment variables only (never hardcode secrets in repo).
+            // Missing env vars fail only release-oriented tasks with a clear message;
+            // debug builds and unit tests never require them.
+            val releaseEnv = listOf(
+                "PHONELINK_KEYSTORE_PATH" to System.getenv("PHONELINK_KEYSTORE_PATH"),
+                "PHONELINK_KEYSTORE_PASSWORD" to System.getenv("PHONELINK_KEYSTORE_PASSWORD"),
+                "PHONELINK_KEY_ALIAS" to System.getenv("PHONELINK_KEY_ALIAS"),
+                "PHONELINK_KEY_PASSWORD" to System.getenv("PHONELINK_KEY_PASSWORD"),
+            )
+            val missingEnv = releaseEnv.filter { it.second.isNullOrEmpty() }
+            if (missingEnv.isEmpty()) {
+                signingConfig = signingConfigs.create("release") {
+                    storeFile = file(releaseEnv[0].second!!)
+                    storePassword = releaseEnv[1].second!!
+                    keyAlias = releaseEnv[2].second!!
+                    keyPassword = releaseEnv[3].second!!
+                }
+            } else {
+                tasks.matching { it.name.contains("Release", ignoreCase = true) }.configureEach {
+                    doFirst {
+                        throw GradleException(
+                            "Release signing not configured: missing env var(s) " +
+                                missingEnv.joinToString(", ") { it.first } +
+                                ". See docs/RELEASE_BUILD.md. Debug builds do not need them."
+                        )
+                    }
+                }
+            }
         }
     }
 

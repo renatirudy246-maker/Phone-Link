@@ -51,3 +51,6 @@ tools/scanner-feedback/real-input/
 tools/scanner-feedback/training-photos/
 tools/scanner-feedback/*.jpg
 tools/scanner-feedback/*.png
+
+# Android signing (never commit)
+*.jks
