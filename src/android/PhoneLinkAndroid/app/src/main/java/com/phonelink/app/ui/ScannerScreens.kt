@@ -445,8 +445,8 @@ fun ScanPreviewScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .padding(horizontal = 4.dp),
-                contentAlignment = Alignment.Center,
+                    .padding(horizontal = 16.dp),
+                contentAlignment = Alignment.BottomCenter,
             ) {
                 if (bitmap != null) {
                     Image(
@@ -460,11 +460,14 @@ fun ScanPreviewScreen(
                 }
             }
 
+            Spacer(Modifier.height(16.dp))
+
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 if (!cropped) {
@@ -522,7 +525,7 @@ fun ScanPreviewScreen(
                         }
                     }
                 }
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(14.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -588,7 +591,7 @@ fun ScanPreviewScreen(
 private val EnhanceMode.label: String
     get() = when (this) {
         EnhanceMode.ORIGINAL -> "原图"
-        EnhanceMode.AUTO -> "自动"
+        EnhanceMode.AUTO -> "增强"
         EnhanceMode.GRAY -> "灰度"
         EnhanceMode.BLACK_WHITE -> "黑白"
     }
