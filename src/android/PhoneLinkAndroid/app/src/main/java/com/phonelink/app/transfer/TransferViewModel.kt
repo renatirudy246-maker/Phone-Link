@@ -70,6 +70,13 @@ class TransferViewModel(app: Application) : AndroidViewModel(app) {
 
     private var enhanceMode: EnhanceMode = EnhanceMode.ORIGINAL
 
+    /** 增强模式缓存：避免重复生成与闪烁 */
+    private val modeCache = mutableMapOf<EnhanceMode, ImagePreparer.PreparedImage>()
+
+    /** 是否正在后台执行增强运算 */
+    var isEnhancing by mutableStateOf(false)
+        private set
+
     /** 当前工作图片（发送目标）。 */
     private var working: ImagePreparer.PreparedImage? = null
     private var manifest: TransferManifest? = null
@@ -168,6 +175,9 @@ class TransferViewModel(app: Application) : AndroidViewModel(app) {
         working = image
         scanQuad = null
         scanBase = null
+        modeCache.clear()
+        modeCache[EnhanceMode.ORIGINAL] = image
+        isEnhancing = false
         enhanceMode = EnhanceMode.ORIGINAL
         currentEnhanceMode = EnhanceMode.ORIGINAL
         cropped = false
@@ -232,6 +242,9 @@ class TransferViewModel(app: Application) : AndroidViewModel(app) {
                     scanBase?.file?.delete()
                     scanBase = result
                     scanQuad = quad
+                    modeCache.clear()
+                    modeCache[EnhanceMode.ORIGINAL] = result
+                    isEnhancing = false
                     enhanceMode = EnhanceMode.ORIGINAL
                     currentEnhanceMode = EnhanceMode.ORIGINAL
                     cropped = false
@@ -254,6 +267,9 @@ class TransferViewModel(app: Application) : AndroidViewModel(app) {
         scanBase?.file?.delete()
         scanBase = null
         scanQuad = null
+        modeCache.clear()
+        modeCache[EnhanceMode.ORIGINAL] = original
+        isEnhancing = false
         enhanceMode = EnhanceMode.ORIGINAL
         currentEnhanceMode = EnhanceMode.ORIGINAL
         cropped = false
@@ -269,22 +285,31 @@ class TransferViewModel(app: Application) : AndroidViewModel(app) {
         sendState = SendUiState.AdjustingEdges(original.file, scanQuad ?: Quadrilateral.DEFAULT, DetectionStatus.DETECTED)
     }
 
-    /** 切换增强（非破坏）：始终从 perspective base（或原图）重新生成。 */
+    /** 切换增强（非破坏）：始终从 perspective base（或原图）重新生成，优先使用缓存。 */
     fun setEnhanceMode(mode: EnhanceMode) {
-        if (mode == enhanceMode || mode == EnhanceMode.ORIGINAL && enhanceMode == EnhanceMode.ORIGINAL) return
+        if (mode == currentEnhanceMode) return
         val base = scanBase ?: prepared ?: return
         val id = transferId ?: return
         if (sending || cropped) return
-        if (mode == EnhanceMode.ORIGINAL) {
-            // 回原始 base（未增强）
-            enhanceMode = EnhanceMode.ORIGINAL
-            currentEnhanceMode = EnhanceMode.ORIGINAL
-            working = base
-            rebuildManifest(base, id)
-            sendState = SendUiState.ScanPreview(base.file)
+
+        currentEnhanceMode = mode
+        enhanceMode = mode
+
+        // 1. 命中缓存：立即原子切换（0ms 响应，零 UI 抖动）
+        val cached = modeCache[mode]
+        if (cached != null) {
+            Log.d(TAG, "MODE_SELECTED = $mode (from cache): file=${cached.file.name}")
+            working = cached
+            rebuildManifest(cached, id)
+            sendState = SendUiState.ScanPreview(cached.file)
             return
         }
-        sendState = SendUiState.Preparing("正在优化页面…")
+
+        // 2. 未命中缓存：后台静默执行，保持当前预览不闪退
+        isEnhancing = true
+        val startTime = System.currentTimeMillis()
+        Log.d(TAG, "MODE_SELECTED = $mode (generating): baseFile=${base.file.name}")
+
         viewModelScope.launch {
             val result = withContext(Dispatchers.Default) {
                 try {
@@ -292,21 +317,33 @@ class TransferViewModel(app: Application) : AndroidViewModel(app) {
                         ?: throw ImagePreparer.PrepareException("无法解码图片")
                     val enhanced = DocumentEnhancer.enhance(bitmap, mode)
                     bitmap.recycle()
-                    ImagePreparer.crop(enhanced, com.phonelink.app.crop.CropRect(0, 0, enhanced.width, enhanced.height), nextTempFile("enhanced.jpg"))
-                        .also { enhanced.recycle() }
+                    val prepared = ImagePreparer.crop(
+                        enhanced,
+                        com.phonelink.app.crop.CropRect(0, 0, enhanced.width, enhanced.height),
+                        nextTempFile("enhanced_${mode.name.lowercase()}.jpg")
+                    )
+                    enhanced.recycle()
+                    prepared
                 } catch (e: Exception) {
-                    e
+                    Log.e(TAG, "Enhancement failed for $mode: ${e.message}", e)
+                    null
                 }
             }
-            when (result) {
-                is ImagePreparer.PreparedImage -> {
-                    enhanceMode = mode
-                    currentEnhanceMode = mode
+
+            val elapsed = System.currentTimeMillis() - startTime
+            isEnhancing = false
+
+            if (result != null) {
+                Log.d(TAG, "MODE_SELECTED = $mode finished in ${elapsed}ms: outFile=${result.file.name} sha256=${result.sha256.take(12)}")
+                modeCache[mode] = result
+                // 仅当用户未在此期间切到其他模式时才更新当前展示
+                if (currentEnhanceMode == mode) {
                     working = result
                     rebuildManifest(result, id)
                     sendState = SendUiState.ScanPreview(result.file)
                 }
-                is Exception -> sendState = SendUiState.ScanPreview((working ?: base).file)
+            } else {
+                Log.w(TAG, "MODE_SELECTED = $mode FAILED, fallback to current preview")
             }
         }
     }
@@ -320,6 +357,9 @@ class TransferViewModel(app: Application) : AndroidViewModel(app) {
         working?.file?.takeIf { it != original.file && it != scanBase?.file }?.delete()
         scanBase = null
         scanQuad = null
+        modeCache.clear()
+        modeCache[EnhanceMode.ORIGINAL] = original
+        isEnhancing = false
         enhanceMode = EnhanceMode.ORIGINAL
         currentEnhanceMode = EnhanceMode.ORIGINAL
         cropped = false

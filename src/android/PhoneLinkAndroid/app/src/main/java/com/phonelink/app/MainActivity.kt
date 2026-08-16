@@ -256,6 +256,7 @@ private fun PairedContent(
                 previewFile = sendState.previewFile,
                 cropped = vm.cropped,
                 enhanceMode = vm.currentEnhanceMode,
+                isProcessing = vm.isEnhancing,
                 onBack = {
                     vm.retake()
                     if (screen == AppScreen.Camera) onScreenChange(AppScreen.Home)
