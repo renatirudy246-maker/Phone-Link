@@ -1,13 +1,13 @@
 # Phone-Link Project Status
 
 ## Current Phase
-Phase 4B — Offline Document Scanner & Correction Feedback
+Phase 4C.1 — Windows Installer (Inno Setup) — v1.0.0 Release 补齐
 
 ## Status
-COMPLETE (2026-08-16) — Phase 4B Final Closeout：真机回归全绿，已封为稳定基线（Core v1 Baseline）
+COMPLETE (2026-08-16) — v1.0.0 已发布：Windows Installer + Portable ZIP + Android APK + SHA256SUMS（PRIVATE GitHub Release）；I1–I8 安装器验收全 PASS
 
 ## Last Verified Commit
-`feat(icons): official app icons for desktop and Android + 1.0.0 formal release polish`（main @ e385bbd，Phase 4B 已并入 main）
+`release: finalize Phone-Link v1.0.0 acceptance`（main @ 21614ee，v1.0.0 tag；Phase 4C.1 随本提交后推送）
 
 ## Completed
 

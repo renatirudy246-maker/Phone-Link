@@ -1,4 +1,31 @@
-# Phone-Link Android Release Build
+# Phone-Link Release Build
+
+## Windows Installer (Inno Setup 7)
+
+Prerequisites: Inno Setup 7 (x64) installed (e.g. `winget install --id JRSoftware.InnoSetup.7 -e -s winget`).
+
+Source of truth for the installer: `installer/phone-link-setup.iss`.
+
+- Default install path: `%LOCALAPPDATA%\Programs\Phone-Link` (per-user, no admin)
+- Upgrade identity (`AppId`): `E77DCAFD-3D07-4F78-A1CD-436BF5CEE32C` — **permanent, never change**
+- User data lives in `%LOCALAPPDATA%\PhoneLink\` and is untouched by install/uninstall
+- Desktop shortcut is an opt-in wizard task
+- Running-app detection prompts to exit before setup continues (no app mutex exists)
+- Firewall rules are created by Windows' first-listen authorization dialog (per program path);
+  the installer adds **no** firewall rules on purpose
+
+Build (compiles the accepted Release publish output into the Setup EXE):
+
+```powershell
+.\tools\build-windows-installer.ps1 [-PublishDir <path-to-dotnet-publish>] [-OutputDir artifacts\release\v1.0.0]
+```
+
+Without `-PublishDir` it performs a fresh `dotnet publish -c Release` first.
+
+Quiet install for CI/testing: `Phone-Link-Setup-v1.0.0.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART`
+(silent mode selects all tasks, including the desktop icon, unless `/TASKS` is passed).
+
+## Android Release Build
 
 ## Prerequisites
 
